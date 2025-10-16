@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freelance Music</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="resources/styles/index.css">
+</head>
+<body>
+    <header class="site-header">
+        <div class="container header-inner">
+            <a class="brand" href="#home" onclick="showPage('home')">
+                <span class="logo-mark" aria-hidden="true">
+                    <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <defs>
+                            <linearGradient id="g1" x1="0" y1="0" x2="28" y2="28" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#1A4D2E"/>
+                                <stop offset="1" stop-color="#c9a33a"/>
+                            </linearGradient>
+                        </defs>
+                        <circle cx="14" cy="14" r="13" fill="url(#g1)"/>
+                        <path d="M18 7v10.2a3.8 3.8 0 1 1-1.6-3.1V9.2h-3.2a3.2 3.2 0 1 1 0-1.6H18z" fill="white"/>
+                    </svg>
+                </span>
+                <span class="brand-text">Freelance Music</span>
+            </a>
+            <nav class="main-nav">
+                <a href="#student-dashboard" class="nav-link" onclick="showPage('student-dashboard')">For Learners</a>
+                <a href="#teacher-dashboard" class="nav-link" onclick="showPage('teacher-dashboard')">For Teachers</a>
+                <a href="#admin-dashboard" class="nav-link" onclick="showPage('admin-dashboard')">Admin Dashboard</a>
+                <span class="nav-divider"></span>
+                <div class="auth-actions">
+                    <button class="btn btn-outline btn-sm" data-bs-toggle="modal" data-bs-target="#loginModal">Log In</button>
+                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#signupModal">Sign Up</button>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <!-- Admin Dashboard -->
+        <div id="admin-dashboard" class="page-content d-none">
+            <div class="container-fluid py-4">
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                            <div>
+                                <h1 class="h2 mb-0">Admin Dashboard</h1>
+                                <p class="text-muted mb-0">Comprehensive analytics and reporting for Freelance Music platform</p>
+                            </div>
+                            <div>
+                                <a href="#home" class="btn btn-outline-secondary" onclick="showPage('home')"><i class="fas fa-arrow-left me-1"></i> Back to Home</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Stats -->
+                <div class="row mb-4">
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <h6 class="card-title">Total Revenue</h6>
+                                        <h3 class="mb-0" id="totalRevenue">$0</h3>
+                                    </div>
+                                    <div class="align-self-center">
+                                        <i class="fas fa-dollar-sign fa-2x"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-success text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <h6 class="card-title">Total Users</h6>
+                                        <h3 class="mb-0" id="totalUsers">0</h3>
+                                    </div>
+                                    <div class="align-self-center">
+                                        <i class="fas fa-users fa-2x"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-info text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <h6 class="card-title">Lessons Booked</h6>
+                                        <h3 class="mb-0" id="totalLessons">0</h3>
+                                    </div>
+                                    <div class="align-self-center">
+                                        <i class="fas fa-calendar-check fa-2x"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-warning text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <h6 class="card-title">Repeat Rate</h6>
+                                        <h3 class="mb-0" id="repeatRate">0%</h3>
+                                    </div>
+                                    <div class="align-self-center">
+                                        <i class="fas fa-redo fa-2x"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs -->
+                <ul class="nav nav-tabs mb-4" id="adminTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="revenue-tab" data-bs-toggle="tab" data-bs-target="#revenue" type="button" role="tab">Revenue Report</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="referral-tab" data-bs-toggle="tab" data-bs-target="#referral" type="button" role="tab">Referral Report</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="instruments-tab" data-bs-toggle="tab" data-bs-target="#instruments" type="button" role="tab">Popular Instruments</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="lessons-tab" data-bs-toggle="tab" data-bs-target="#lessons" type="button" role="tab">Lessons Booked</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab">Users Joined</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="repeat-tab" data-bs-toggle="tab" data-bs-target="#repeat" type="button" role="tab">Repeat Lessons</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="distribution-tab" data-bs-toggle="tab" data-bs-target="#distribution" type="button" role="tab">Revenue Distribution</button>
+                    </li>
+                </ul>
+
+                <!-- Tab Content -->
+                <div class="tab-content" id="adminTabContent">
+                    <!-- Revenue Report -->
+                    <div class="tab-pane fade show active" id="revenue" role="tabpanel">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Revenue by Quarter</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="revenueChart" height="100"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Referral Report -->
+                    <div class="tab-pane fade" id="referral" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">How Students Found FM</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="referralChart" height="200"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Referral Breakdown</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="referralTable"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Popular Instruments -->
+                    <div class="tab-pane fade" id="instruments" role="tabpanel">
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Most Booked Instruments</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="instrumentsTable"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lessons Booked -->
+                    <div class="tab-pane fade" id="lessons" role="tabpanel">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-outline-primary active" onclick="showLessonsView('table')">Table View</button>
+                                    <button type="button" class="btn btn-outline-primary" onclick="showLessonsView('calendar')">Calendar View</button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="lessonsSearch" placeholder="Search lessons...">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="searchLessons()">Search</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div id="lessonsTable"></div>
+                                        <div id="lessonsCalendar" class="d-none"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Users Joined -->
+                    <div class="tab-pane fade" id="users" role="tabpanel">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <select class="form-select" id="userRoleFilter" onchange="filterUsers()">
+                                    <option value="">All Users</option>
+                                    <option value="student">Students Only</option>
+                                    <option value="teacher">Teachers Only</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="usersSearch" placeholder="Search users...">
+                                    <button class="btn btn-outline-secondary" type="button" onclick="searchUsers()">Search</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <div id="usersTable"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Repeat Lessons -->
+                    <div class="tab-pane fade" id="repeat" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Repeat Rate Analysis</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="repeatChart" height="200"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Repeat Statistics</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="repeatStats"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Revenue Distribution -->
+                    <div class="tab-pane fade" id="distribution" role="tabpanel">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Revenue by Instrument</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="instrumentRevenueChart" height="200"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5 class="card-title mb-0">Revenue by Student</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <canvas id="studentRevenueChart" height="200"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Teacher Dashboard -->
+        <div id="teacher-dashboard" class="page-content d-none">
+            <div class="container-fluid py-4">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+                    <div>
+                        <h1 class="h2 mb-0">Teacher Dashboard</h1>
+                        <p class="text-muted mb-0">Manage your profile, rates, availability, and lessons</p>
+                    </div>
+                    <div>
+                        <a href="#home" class="btn btn-outline-secondary" onclick="showPage('home')"><i class="fas fa-arrow-left me-1"></i> Back to Home</a>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <ul class="nav nav-tabs mb-4" id="teacherTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#t-profile" type="button" role="tab">Create Profile</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-revenue" type="button" role="tab">Revenue Per Lesson</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-availability" type="button" role="tab">Schedule Availability</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#t-lessons" type="button" role="tab">View Lessons</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- Profile -->
+                    <div class="tab-pane fade show active" id="t-profile" role="tabpanel">
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="card">
+                                    <div class="card-header"><h5 class="mb-0">Teacher Profile</h5></div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Full Name</label>
+                                            <input type="text" id="tName" class="form-control" placeholder="Jane Doe">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Primary Instrument</label>
+                                            <input type="text" id="tInstrument" class="form-control" placeholder="Piano, Guitar, Violin...">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Bio</label>
+                                            <textarea id="tBio" class="form-control" rows="4" placeholder="Share your background, style, and approach..."></textarea>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Contact Email</label>
+                                            <input type="email" id="tEmail" class="form-control" placeholder="you@example.com">
+                                        </div>
+                                        <button class="btn btn-primary" onclick="saveTeacherProfile()">Save Profile</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="card">
+                                    <div class="card-header"><h5 class="mb-0">Profile Summary</h5></div>
+                                    <div class="card-body" id="tProfileSummary">
+                                        <p class="text-muted mb-0">Your saved profile will appear here.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Revenue -->
+                    <div class="tab-pane fade" id="t-revenue" role="tabpanel">
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="card">
+                                    <div class="card-header"><h5 class="mb-0">Pricing Options</h5></div>
+                                    <div class="card-body">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="radio" name="priceType" id="flatRate" value="flat" checked>
+                                            <label class="form-check-label" for="flatRate">Flat Rate Per Lesson</label>
+                                        </div>
+                                        <div class="form-check mb-3">
+                                            <input class="form-check-input" type="radio" name="priceType" id="customRate" value="custom">
+                                            <label class="form-check-label" for="customRate">Custom Rate Per Lesson</label>
+                                        </div>
+
+                                        <div id="flatRateGroup" class="mb-3">
+                                            <label class="form-label">Flat Rate ($)</label>
+                                            <input type="number" id="flatRateInput" class="form-control" min="0" step="1" placeholder="40">
+                                        </div>
+
+                                        <div id="customRateGroup" class="mb-3 d-none">
+                                            <label class="form-label">Custom Rate ($)</label>
+                                            <input type="number" id="customRateInput" class="form-control" min="0" step="1" placeholder="55">
+                                        </div>
+
+                                        <button class="btn btn-primary" onclick="saveTeacherRates()">Save Pricing</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="card">
+                                    <div class="card-header"><h5 class="mb-0">Earnings Summary</h5></div>
+                                    <div class="card-body" id="tEarningsSummary">
+                                        <p class="text-muted mb-0">Your potential earnings will be displayed here.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Availability -->
+                    <div class="tab-pane fade" id="t-availability" role="tabpanel">
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="card">
+                                    <div class="card-header"><h5 class="mb-0">Add Availability</h5></div>
+                                    <div class="card-body">
+                                        <div class="row g-2">
+                                            <div class="col-6">
+                                                <label class="form-label">Date</label>
+                                                <input type="date" id="availDate" class="form-control">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label">Start Time</label>
+                                                <input type="time" id="availTime" class="form-control">
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label">Duration</label>
+                                                <select id="availDuration" class="form-select">
+                                                    <option value="30">30 minutes</option>
+                                                    <option value="45">45 minutes</option>
+                                                    <option value="60">1 hour</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-12">
+                                                <button class="btn btn-primary w-100" onclick="addAvailability()">Add Slot</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="card">
+                                    <div class="card-header"><h5 class="mb-0">Your Availability</h5></div>
+                                    <div class="card-body" id="tAvailabilityList">
+                                        <p class="text-muted mb-0">No availability added yet.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Lessons -->
+                    <div class="tab-pane fade" id="t-lessons" role="tabpanel">
+                        <div class="row mb-3 g-2">
+                            <div class="col-md-6">
+                                <input type="date" id="tFilterDate" class="form-control">
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" id="tFilterInstrument" class="form-control" placeholder="Filter by instrument">
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-body" id="tLessonsTable">
+                                <p class="text-muted mb-0">No lessons yet.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Student Dashboard -->
+        <div id="student-dashboard" class="page-content d-none">
+            <div class="container-fluid py-4">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+                    <div>
+                        <h1 class="h2 mb-0">Student Dashboard</h1>
+                        <p class="text-muted mb-0">Create your profile, find teachers, and book lessons</p>
+                    </div>
+                    <div>
+                        <a href="#home" class="btn btn-outline-secondary" onclick="showPage('home')"><i class="fas fa-arrow-left me-1"></i> Back to Home</a>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <ul class="nav nav-tabs mb-4" id="studentTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#s-profile" type="button" role="tab">Create Profile</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#s-schedule" type="button" role="tab">Schedule Lessons</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#s-search" type="button" role="tab">Search by Instrument</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#s-payment" type="button" role="tab">Payment</button>
+                    </li>
+                </ul>
+
+                <div class="tab-content">
+                    <!-- Profile -->
+                    <div class="tab-pane fade show active" id="s-profile" role="tabpanel">
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="card">
+                                    <div class="card-header"><h5 class="mb-0">Student Profile</h5></div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Full Name</label>
+                                            <input type="text" id="sName" class="form-control" placeholder="John Smith">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Instrument</label>
+                                            <input type="text" id="sInstrument" class="form-control" placeholder="Guitar, Piano, Violin...">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Contact Email</label>
+                                            <input type="email" id="sEmail" class="form-control" placeholder="you@example.com">
+                                        </div>
+                                        <button class="btn btn-primary" onclick="saveStudentProfile()">Save Profile</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="card">
+                                    <div class="card-header"><h5 class="mb-0">Profile Summary</h5></div>
+                                    <div class="card-body" id="sProfileSummary">
+                                        <p class="text-muted mb-0">Your saved profile will appear here.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Schedule Lessons -->
+                    <div class="tab-pane fade" id="s-schedule" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="btn-group" role="group">
+                                <button type="button" class="btn btn-outline-primary active" onclick="showStudentScheduleView('table')">Table View</button>
+                                <button type="button" class="btn btn-outline-primary" onclick="showStudentScheduleView('calendar')">Calendar View</button>
+                            </div>
+                            <div>
+                                <select id="lessonType" class="form-select">
+                                    <option value="virtual">Virtual</option>
+                                    <option value="in-person">In-Person</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="sScheduleTable"></div>
+                        <div id="sScheduleCalendar" class="d-none"></div>
+                    </div>
+
+                    <!-- Search by Instrument -->
+                    <div class="tab-pane fade" id="s-search" role="tabpanel">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <input type="text" id="sSearchInstrument" class="form-control" placeholder="e.g., Guitar">
+                            </div>
+                            <div class="col-md-6">
+                                <button class="btn btn-primary" onclick="filterTeachersByInstrument()">Search</button>
+                            </div>
+                        </div>
+                        <div id="sTeachersGrid"></div>
+                    </div>
+
+                    <!-- Payment -->
+                    <div class="tab-pane fade" id="s-payment" role="tabpanel">
+                        <div class="row g-3">
+                            <div class="col-lg-6">
+                                <div class="card">
+                                    <div class="card-header"><h5 class="mb-0">Card Verification</h5></div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Card Number</label>
+                                            <input type="text" id="cardNumber" class="form-control" placeholder="4111 1111 1111 1111">
+                                        </div>
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-6">
+                                                <label class="form-label">Expiry (MM/YY)</label>
+                                                <input type="text" id="cardExpiry" class="form-control" placeholder="12/27">
+                                            </div>
+                                            <div class="col-6">
+                                                <label class="form-label">CVV</label>
+                                                <input type="text" id="cardCvv" class="form-control" placeholder="123">
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-primary" onclick="verifyStudentCard()">Verify Card</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="card">
+                                    <div class="card-header"><h5 class="mb-0">Payment Summary</h5></div>
+                                    <div class="card-body" id="sPaymentSummary">
+                                        <p class="text-muted mb-0">No payments yet.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lesson Room -->
+        <div id="lesson-room" class="page-content d-none">
+            <div class="container-fluid py-4">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                    <div>
+                        <h1 class="h4 mb-0">Lesson Room</h1>
+                        <small class="text-muted" id="lessonRoomInfo">Teacher • Instrument • Date</small>
+                    </div>
+                    <div>
+                        <a href="#student-dashboard" class="btn btn-outline-secondary" onclick="showPage('student-dashboard')"><i class="fas fa-arrow-left me-1"></i> Back</a>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-lg-8">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Video</h5>
+                                <a id="externalLink" href="#" target="_blank" class="btn btn-sm btn-outline-primary">Open in Zoom/Meet</a>
+                            </div>
+                            <div class="card-body" style="height: 360px; display:grid; place-items:center; background:#0b2a1a10;">
+                                <div class="text-center">
+                                    <div class="mb-2">Video Placeholder</div>
+                                    <small class="text-muted">(Integrate Zoom/Meet/WebRTC later)</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="card mb-3">
+                            <div class="card-header"><h5 class="mb-0">Shared Notes</h5></div>
+                            <div class="card-body">
+                                <textarea id="lessonNotes" class="form-control" rows="6" placeholder="Write notes, assignments, and tips..."></textarea>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Sheet Music</h5>
+                                <label class="btn btn-sm btn-outline-primary mb-0">
+                                    Upload <input type="file" id="sheetUpload" accept="application/pdf,image/*" hidden onchange="uploadSheetMusic(event)">
+                                </label>
+                            </div>
+                            <div class="card-body" id="sheetViewer">
+                                <p class="text-muted mb-0">No sheet music yet.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header"><h5 class="mb-0">Messages</h5></div>
+                    <div class="card-body">
+                        <div id="messageThread" class="mb-2" style="max-height:200px; overflow:auto;"></div>
+                        <div class="input-group">
+                            <input type="text" id="messageInput" class="form-control" placeholder="Type a message...">
+                            <button class="btn btn-primary" onclick="sendLessonMessage()">Send</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-end mt-3">
+                    <button class="btn btn-outline-secondary me-2" onclick="downloadIcs()">Add to Calendar</button>
+                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#endLessonModal">End Lesson</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- End Lesson Modal -->
+        <div class="modal fade" id="endLessonModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">End Lesson Summary</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Summary / Homework</label>
+                            <textarea id="endSummary" class="form-control" rows="4" placeholder="What to practice, focus points, resources..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Rate this lesson</label>
+                            <select id="endRating" class="form-select">
+                                <option value="5">5 - Excellent</option>
+                                <option value="4">4 - Good</option>
+                                <option value="3">3 - Okay</option>
+                                <option value="2">2 - Needs work</option>
+                                <option value="1">1 - Poor</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="saveEndLesson()">Save</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="home" class="page-content">
+        <section id="hero" class="hero">
+            <div class="promo-ribbon">Limited time: Take a Trial Lesson — get $20 toward your next one</div>
+            <div class="container hero-grid">
+                <div class="hero-copy">
+                    <h1 class="hero-title">Become the musician you want to be.</h1>
+                    <p class="hero-subtitle">Live, one‑on‑one music lessons designed around you — your goals, your schedule, your sound.</p>
+                    <div class="hero-actions">
+                        <a href="#process" class="btn btn-primary btn-hero">Get started</a>
+                        <a href="#values" class="btn btn-outline btn-hero">Why Freelance Music</a>
+                    </div>
+                    <div class="hero-notes">Superior audio • Curated teachers • Simple scheduling</div>
+                </div>
+                <div class="hero-visual" aria-hidden="true"></div>
+                </div>
+            </section>
+
+        <!-- Values Section -->
+        <section id="values" class="section alt reveal">
+                <div class="container">
+                <h2 class="section-title">Our Values</h2>
+                <p class="section-lead">Quality. Respect. Progress. We champion meaningful music journeys.</p>
+                <div class="grid">
+                    <div class="card image-card">
+                        <div class="image image-1" aria-hidden="true"></div>
+                        <h3 class="card-title">Excellence</h3>
+                        <p>We value craft. Every lesson aims to be the best hour of your week.</p>
+                    </div>
+                    <div class="card image-card">
+                        <div class="image image-2" aria-hidden="true"></div>
+                        <h3 class="card-title">Respect</h3>
+                        <p>We build trust between learners and teachers with clarity and care.</p>
+                    </div>
+                    <div class="card image-card">
+                        <div class="image image-3" aria-hidden="true"></div>
+                        <h3 class="card-title">Growth</h3>
+                        <p>Small steps, consistent practice, and celebrating each milestone.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Culture Section -->
+        <section id="culture" class="section reveal">
+            <div class="container">
+                <h2 class="section-title">Our Culture</h2>
+                <p class="section-lead">Welcoming, focused, and human. We keep things simple and supportive.</p>
+                <div class="culture-wrap">
+                    <div class="culture-text">
+                        <p>Freelance Music is a place where curiosity meets discipline. We celebrate the courage to start, the patience to continue, and the pride of performing. Our space is inclusive, our tools are thoughtful, and our tone is always respectful.</p>
+                        <p>Whether you're preparing for your first recital or your next recording, we aim to make each interaction smooth, encouraging, and effective.</p>
+                    </div>
+                    <div class="culture-visual parallax" aria-hidden="true"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Impact Section -->
+        <section id="impact" class="section alt reveal">
+            <div class="container">
+                <h2 class="section-title">Our Impact</h2>
+                <p class="section-lead">Making music education accessible and joyful—one lesson at a time.</p>
+                <div class="impact-grid">
+                    <div class="impact-card">
+                        <div class="impact-num">50k+</div>
+                        <div class="impact-label">Lessons completed</div>
+                    </div>
+                    <div class="impact-card">
+                        <div class="impact-num">10k+</div>
+                        <div class="impact-label">Happy learners</div>
+                    </div>
+                    <div class="impact-card">
+                        <div class="impact-num">2k+</div>
+                        <div class="impact-label">Professional teachers</div>
+                    </div>
+                    <div class="impact-card">
+                        <div class="impact-num">95%</div>
+                        <div class="impact-label">Satisfaction rate</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Our Goal Section -->
+        <section id="goal" class="section reveal">
+            <div class="container">
+                <h2 class="section-title">Our Goal</h2>
+                <p class="section-lead">Empower anyone to learn and teach music with dignity, clarity, and momentum.</p>
+                <div class="goal-wrap">
+                    <div class="goal-point">
+                        <div class="dot"></div>
+                        <p>Lower the friction to start learning an instrument.</p>
+                    </div>
+                    <div class="goal-point">
+                        <div class="dot"></div>
+                        <p>Connect learners to the right teachers, at the right time.</p>
+                            </div>
+                    <div class="goal-point">
+                        <div class="dot"></div>
+                        <p>Make scheduling, feedback, and progress effortless.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- How It Works Section -->
+        <section id="process" class="section alt reveal">
+            <div class="container">
+                <h2 class="section-title">How Freelance Music Works</h2>
+                <p class="section-lead">A simple flow, designed for momentum.</p>
+                <ol class="timeline">
+                    <li class="step">
+                        <span class="step-badge">1</span>
+                        <div class="step-content">
+                            <h3>Tell us your goals</h3>
+                            <p>Share your instrument, level, and what you want to achieve.</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <span class="step-badge">2</span>
+                        <div class="step-content">
+                            <h3>Match with a teacher</h3>
+                            <p>We help you find the right fit—style, schedule, and budget.</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <span class="step-badge">3</span>
+                        <div class="step-content">
+                            <h3>Book and learn</h3>
+                            <p>Choose a time, meet virtually or in-person, and start playing.</p>
+                        </div>
+                    </li>
+                    <li class="step">
+                        <span class="step-badge">4</span>
+                        <div class="step-content">
+                            <h3>Track progress</h3>
+                            <p>Receive feedback, resources, and next steps after each lesson.</p>
+                        </div>
+                    </li>
+                </ol>
+                    </div>
+        </section>
+    </main>
+
+    <!-- Sponsors / Ad card -->
+    <section class="ads-band">
+        <div class="container">
+            <div class="ad-card">
+                <div class="ad-content">
+                    <div class="ad-label" aria-label="Advertisement">Advertisement</div>
+                    <h3 class="ad-title">Join MIS Major at UA</h3>
+                    <p class="ad-text">Level up your career with the Management Information Systems program at The University of Alabama. Blend technology, business, and strategy to build real impact.</p>
+                </div>
+                <div class="ad-visual" aria-hidden="true"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Feature band (audio/visual focus) -->
+    <section class="feature-band">
+        <div class="container feature-grid">
+            <div class="feature-card">
+                <h3>Hear the difference</h3>
+                <p>Designed for music—clear audio, and tools that keep you focused on playing.</p>
+                        </div>
+            <div class="feature-card">
+                <h3>See the progress</h3>
+                <p>Simple visuals, shared documents, and recorded sessions to revisit any time.</p>
+                    </div>
+                </div>
+    </section>
+
+    <!-- Testimonials (Bootstrap Carousel) -->
+    <section class="py-5">
+        <div class="container">
+            <h2 class="section-title mb-3">What learners say</h2>
+            <div id="fmCarousel" class="carousel slide" data-bs-ride="carousel">
+                <div class="carousel-indicators">
+                    <button type="button" data-bs-target="#fmCarousel" data-bs-slide-to="0" class="active" aria-current="true" aria-label="Slide 1"></button>
+                    <button type="button" data-bs-target="#fmCarousel" data-bs-slide-to="1" aria-label="Slide 2"></button>
+                    <button type="button" data-bs-target="#fmCarousel" data-bs-slide-to="2" aria-label="Slide 3"></button>
+                </div>
+                <div class="carousel-inner">
+                    <div class="carousel-item active">
+                        <div class="row align-items-center g-3">
+                            <div class="col-md-5">
+                                <img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1200&auto=format&fit=crop" class="d-block w-100 rounded-3" alt="Piano lesson">
+                            </div>
+                            <div class="col-md-7">
+                                <div class="p-3">
+                                    <h5 class="mb-2">“The lessons fit my schedule perfectly.”</h5>
+                                    <p class="text-muted mb-0">Live one-on-one sessions made it easy to progress every week.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="carousel-item">
+                        <div class="row align-items-center g-3">
+                            <div class="col-md-5">
+                                <img src="https://images.unsplash.com/photo-1490367532201-b9bc1dc483f6?q=80&w=1200&auto=format&fit=crop" class="d-block w-100 rounded-3" alt="Violin lesson">
+                            </div>
+                            <div class="col-md-7">
+                                <div class="p-3">
+                                    <h5 class="mb-2">“Matched with the right teacher fast.”</h5>
+                                    <p class="text-muted mb-0">The curated matches saved me hours of searching.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="carousel-item">
+                        <div class="row align-items-center g-3">
+                            <div class="col-md-5">
+                                <img src="https://images.unsplash.com/photo-1518972559570-7cc1309f3229?q=80&w=1200&auto=format&fit=crop" class="d-block w-100 rounded-3" alt="Guitar lesson">
+                            </div>
+                            <div class="col-md-7">
+                                <div class="p-3">
+                                    <h5 class="mb-2">“Audio quality is fantastic.”</h5>
+                                    <p class="text-muted mb-0">Hearing nuance made technique work so much clearer.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button class="carousel-control-prev" type="button" data-bs-target="#fmCarousel" data-bs-slide="prev">
+                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Previous</span>
+                </button>
+                <button class="carousel-control-next" type="button" data-bs-target="#fmCarousel" data-bs-slide="next">
+                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                    <span class="visually-hidden">Next</span>
+                </button>
+            </div>
+        </div>
+    </section>
+        </div>
+
+    <footer class="site-footer">
+        <div class="container footer-inner">
+            <div>© <span id="year"></span> Freelance Music. All rights reserved.</div>
+            
+                    </div>
+    </footer>
+
+    <!-- Loading Screen -->
+    <div id="loader" class="loader">
+        <div class="loader-inner">
+            <div class="logo-mark">FM</div>
+            <div class="spin-wrap">
+                <div class="spin-ring"></div>
+                <div class="spin-core"></div>
+                    </div>
+            <div class="eq">
+                <span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div class="loader-text">Loading your music experience...</div>
+        </div>
+        <!-- Floating musical notes in loader -->
+        <div class="note note-1">♪</div>
+        <div class="note note-2">♬</div>
+        <div class="note note-3">♫</div>
+        <div class="note note-4">♩</div>
+        <div class="loader-image" aria-hidden="true"></div>
+    </div>
+
+    <!-- Subtle floating notes in background -->
+    <div class="bg-notes">
+        <span class="bg-note n1">♪</span>
+        <span class="bg-note n2">♬</span>
+        <span class="bg-note n3">♫</span>
+        <span class="bg-note n4">♩</span>
+        <span class="bg-note n5">♭</span>
+        <span class="bg-note n6">♯</span>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="resources/scripts/index.js"></script>
+
+    <!-- Login Modal -->
+    <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Log In</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" id="authLoginEmail" class="form-control" placeholder="you@example.com">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Password</label>
+                        <input type="password" id="authLoginPassword" class="form-control" placeholder="••••••••">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="performLogin()">Log In</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sign Up Modal -->
+    <div class="modal fade" id="signupModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Create Account</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label">First Name</label>
+                            <input type="text" id="suFirst" class="form-control">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" id="suLast" class="form-control">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Email</label>
+                            <input type="email" id="suEmail" class="form-control">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Password</label>
+                            <input type="password" id="suPassword" class="form-control">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Confirm Password</label>
+                            <input type="password" id="suPassword2" class="form-control">
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">I am a</label>
+                            <select id="suRole" class="form-select">
+                                <option value="student">Student</option>
+                                <option value="teacher">Teacher</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" onclick="performSignup()">Create Account</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
