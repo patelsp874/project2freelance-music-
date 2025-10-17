@@ -50,6 +50,25 @@ namespace FreelanceMusicAPI.Controllers
                     CREATE UNIQUE INDEX IF NOT EXISTS IX_Users_Email ON Users (Email);
                 ";
                 createSessionsTableCmd.ExecuteNonQuery();
+
+                // Create TeacherProfiles table
+                var createTeacherProfilesTableCmd = connection.CreateCommand();
+                createTeacherProfilesTableCmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS TeacherProfiles (
+                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        UserId INTEGER NOT NULL,
+                        Name TEXT NOT NULL,
+                        Instrument TEXT NOT NULL,
+                        Bio TEXT NOT NULL,
+                        ContactInfo TEXT NOT NULL,
+                        CreatedAt TEXT NOT NULL,
+                        UpdatedAt TEXT NOT NULL,
+                        FOREIGN KEY (UserId) REFERENCES Users (Id) ON DELETE CASCADE
+                    );
+                    CREATE INDEX IF NOT EXISTS IX_TeacherProfiles_UserId ON TeacherProfiles (UserId);
+                    CREATE UNIQUE INDEX IF NOT EXISTS IX_TeacherProfiles_UserId_Unique ON TeacherProfiles (UserId);
+                ";
+                createTeacherProfilesTableCmd.ExecuteNonQuery();
             }
         }
 
@@ -230,6 +249,269 @@ namespace FreelanceMusicAPI.Controllers
         {
             return Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
         }
+
+        // ===========================================
+        // TEACHER PROFILE ENDPOINTS
+        // ===========================================
+
+        [HttpPost("teacher-profile/create")]
+        public IActionResult CreateTeacherProfile([FromBody] CreateTeacherProfileRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.SessionToken))
+            {
+                return Unauthorized(new { success = false, error = "Session token is required." });
+            }
+
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Instrument) ||
+                string.IsNullOrWhiteSpace(request.Bio) || string.IsNullOrWhiteSpace(request.ContactInfo))
+            {
+                return BadRequest(new { success = false, error = "Please fill in all required fields (name, instrument, bio, contact info)." });
+            }
+
+            // Validate field lengths
+            if (request.Name.Length > 100)
+            {
+                return BadRequest(new { success = false, error = "Name must be 100 characters or less." });
+            }
+            if (request.Instrument.Length > 50)
+            {
+                return BadRequest(new { success = false, error = "Instrument must be 50 characters or less." });
+            }
+            if (request.Bio.Length > 1000)
+            {
+                return BadRequest(new { success = false, error = "Bio must be 1000 characters or less." });
+            }
+            if (request.ContactInfo.Length > 200)
+            {
+                return BadRequest(new { success = false, error = "Contact info must be 200 characters or less." });
+            }
+
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+
+                // Validate session and get user info
+                var validateSessionCmd = connection.CreateCommand();
+                validateSessionCmd.CommandText = @"
+                    SELECT u.Id, u.AccountType
+                    FROM Users u
+                    JOIN Sessions s ON u.Id = s.UserId
+                    WHERE s.SessionToken = @sessionToken AND s.ExpiresAt > @currentTime";
+                validateSessionCmd.Parameters.AddWithValue("@sessionToken", request.SessionToken);
+                validateSessionCmd.Parameters.AddWithValue("@currentTime", DateTime.UtcNow.ToString("o"));
+
+                using (var reader = validateSessionCmd.ExecuteReader())
+                {
+                    if (!reader.Read())
+                    {
+                        return Unauthorized(new { success = false, error = "Invalid or expired session." });
+                    }
+
+                    var userId = reader.GetInt32(0);
+                    var accountType = reader.GetString(1);
+
+                    if (accountType.ToLower() != "teacher")
+                    {
+                        return BadRequest(new { success = false, error = "Only teachers can create teacher profiles." });
+                    }
+
+                    reader.Close();
+
+                    // Check if teacher profile already exists
+                    var checkProfileCmd = connection.CreateCommand();
+                    checkProfileCmd.CommandText = "SELECT COUNT(*) FROM TeacherProfiles WHERE UserId = @userId";
+                    checkProfileCmd.Parameters.AddWithValue("@userId", userId);
+                    if (Convert.ToInt32(checkProfileCmd.ExecuteScalar()) > 0)
+                    {
+                        return BadRequest(new { success = false, error = "Teacher profile already exists. Use update endpoint instead." });
+                    }
+
+                    // Create teacher profile
+                    var createProfileCmd = connection.CreateCommand();
+                    createProfileCmd.CommandText = @"
+                        INSERT INTO TeacherProfiles (UserId, Name, Instrument, Bio, ContactInfo, CreatedAt, UpdatedAt)
+                        VALUES (@userId, @name, @instrument, @bio, @contactInfo, @createdAt, @updatedAt);
+                        SELECT last_insert_rowid();";
+
+                    var now = DateTime.UtcNow.ToString("o");
+                    createProfileCmd.Parameters.AddWithValue("@userId", userId);
+                    createProfileCmd.Parameters.AddWithValue("@name", request.Name);
+                    createProfileCmd.Parameters.AddWithValue("@instrument", request.Instrument);
+                    createProfileCmd.Parameters.AddWithValue("@bio", request.Bio);
+                    createProfileCmd.Parameters.AddWithValue("@contactInfo", request.ContactInfo);
+                    createProfileCmd.Parameters.AddWithValue("@createdAt", now);
+                    createProfileCmd.Parameters.AddWithValue("@updatedAt", now);
+
+                    var profileId = Convert.ToInt32(createProfileCmd.ExecuteScalar());
+
+                    return Ok(new { success = true, message = "Teacher profile created successfully", profileId = profileId });
+                }
+            }
+        }
+
+        [HttpPost("teacher-profile/update")]
+        public IActionResult UpdateTeacherProfile([FromBody] UpdateTeacherProfileRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.SessionToken))
+            {
+                return Unauthorized(new { success = false, error = "Session token is required." });
+            }
+
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Instrument) ||
+                string.IsNullOrWhiteSpace(request.Bio) || string.IsNullOrWhiteSpace(request.ContactInfo))
+            {
+                return BadRequest(new { success = false, error = "Please fill in all required fields (name, instrument, bio, contact info)." });
+            }
+
+            // Validate field lengths
+            if (request.Name.Length > 100)
+            {
+                return BadRequest(new { success = false, error = "Name must be 100 characters or less." });
+            }
+            if (request.Instrument.Length > 50)
+            {
+                return BadRequest(new { success = false, error = "Instrument must be 50 characters or less." });
+            }
+            if (request.Bio.Length > 1000)
+            {
+                return BadRequest(new { success = false, error = "Bio must be 1000 characters or less." });
+            }
+            if (request.ContactInfo.Length > 200)
+            {
+                return BadRequest(new { success = false, error = "Contact info must be 200 characters or less." });
+            }
+
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+
+                // Validate session and get user info
+                var validateSessionCmd = connection.CreateCommand();
+                validateSessionCmd.CommandText = @"
+                    SELECT u.Id, u.AccountType
+                    FROM Users u
+                    JOIN Sessions s ON u.Id = s.UserId
+                    WHERE s.SessionToken = @sessionToken AND s.ExpiresAt > @currentTime";
+                validateSessionCmd.Parameters.AddWithValue("@sessionToken", request.SessionToken);
+                validateSessionCmd.Parameters.AddWithValue("@currentTime", DateTime.UtcNow.ToString("o"));
+
+                using (var reader = validateSessionCmd.ExecuteReader())
+                {
+                    if (!reader.Read())
+                    {
+                        return Unauthorized(new { success = false, error = "Invalid or expired session." });
+                    }
+
+                    var userId = reader.GetInt32(0);
+                    var accountType = reader.GetString(1);
+
+                    if (accountType.ToLower() != "teacher")
+                    {
+                        return BadRequest(new { success = false, error = "Only teachers can update teacher profiles." });
+                    }
+
+                    reader.Close();
+
+                    // Update teacher profile
+                    var updateProfileCmd = connection.CreateCommand();
+                    updateProfileCmd.CommandText = @"
+                        UPDATE TeacherProfiles 
+                        SET Name = @name, Instrument = @instrument, Bio = @bio, ContactInfo = @contactInfo, UpdatedAt = @updatedAt
+                        WHERE UserId = @userId";
+
+                    updateProfileCmd.Parameters.AddWithValue("@userId", userId);
+                    updateProfileCmd.Parameters.AddWithValue("@name", request.Name);
+                    updateProfileCmd.Parameters.AddWithValue("@instrument", request.Instrument);
+                    updateProfileCmd.Parameters.AddWithValue("@bio", request.Bio);
+                    updateProfileCmd.Parameters.AddWithValue("@contactInfo", request.ContactInfo);
+                    updateProfileCmd.Parameters.AddWithValue("@updatedAt", DateTime.UtcNow.ToString("o"));
+
+                    var rowsAffected = updateProfileCmd.ExecuteNonQuery();
+
+                    if (rowsAffected == 0)
+                    {
+                        return NotFound(new { success = false, error = "Teacher profile not found." });
+                    }
+
+                    return Ok(new { success = true, message = "Teacher profile updated successfully" });
+                }
+            }
+        }
+
+        [HttpPost("teacher-profile/get")]
+        public IActionResult GetTeacherProfile([FromBody] GetTeacherProfileRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.SessionToken))
+            {
+                return Unauthorized(new { success = false, error = "Session token is required." });
+            }
+
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+
+                // Validate session and get user info
+                var validateSessionCmd = connection.CreateCommand();
+                validateSessionCmd.CommandText = @"
+                    SELECT u.Id, u.AccountType
+                    FROM Users u
+                    JOIN Sessions s ON u.Id = s.UserId
+                    WHERE s.SessionToken = @sessionToken AND s.ExpiresAt > @currentTime";
+                validateSessionCmd.Parameters.AddWithValue("@sessionToken", request.SessionToken);
+                validateSessionCmd.Parameters.AddWithValue("@currentTime", DateTime.UtcNow.ToString("o"));
+
+                using (var reader = validateSessionCmd.ExecuteReader())
+                {
+                    if (!reader.Read())
+                    {
+                        return Unauthorized(new { success = false, error = "Invalid or expired session." });
+                    }
+
+                    var userId = reader.GetInt32(0);
+                    var accountType = reader.GetString(1);
+
+                    if (accountType.ToLower() != "teacher")
+                    {
+                        return BadRequest(new { success = false, error = "Only teachers can access teacher profiles." });
+                    }
+
+                    reader.Close();
+
+                    // Get teacher profile
+                    var getProfileCmd = connection.CreateCommand();
+                    getProfileCmd.CommandText = @"
+                        SELECT Id, Name, Instrument, Bio, ContactInfo, CreatedAt, UpdatedAt
+                        FROM TeacherProfiles
+                        WHERE UserId = @userId";
+                    getProfileCmd.Parameters.AddWithValue("@userId", userId);
+
+                    using (var profileReader = getProfileCmd.ExecuteReader())
+                    {
+                        if (profileReader.Read())
+                        {
+                            var profile = new
+                            {
+                                id = profileReader.GetInt32(0),
+                                name = profileReader.GetString(1),
+                                instrument = profileReader.GetString(2),
+                                bio = profileReader.GetString(3),
+                                contactInfo = profileReader.GetString(4),
+                                createdAt = profileReader.GetString(5),
+                                updatedAt = profileReader.GetString(6)
+                            };
+
+                            return Ok(new { success = true, profile = profile });
+                        }
+                        else
+                        {
+                            return NotFound(new { success = false, error = "Teacher profile not found." });
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // DTOs for requests
@@ -254,6 +536,30 @@ namespace FreelanceMusicAPI.Controllers
     }
 
     public class LogoutRequest
+    {
+        public string SessionToken { get; set; }
+    }
+
+    // Teacher Profile DTOs
+    public class CreateTeacherProfileRequest
+    {
+        public string SessionToken { get; set; }
+        public string Name { get; set; }
+        public string Instrument { get; set; }
+        public string Bio { get; set; }
+        public string ContactInfo { get; set; }
+    }
+
+    public class UpdateTeacherProfileRequest
+    {
+        public string SessionToken { get; set; }
+        public string Name { get; set; }
+        public string Instrument { get; set; }
+        public string Bio { get; set; }
+        public string ContactInfo { get; set; }
+    }
+
+    public class GetTeacherProfileRequest
     {
         public string SessionToken { get; set; }
     }
