@@ -1,3 +1,1291 @@
+// API Configuration
+const API_BASE_URL = 'http://localhost:5168/api';
+
+// Authentication Functions
+async function performSignupAPI(firstName, lastName, email, password, accountType) {
+    try {
+        console.log('Attempting signup with:', { FirstName: firstName, LastName: lastName, Email: email, AccountType: accountType });
+        
+        const response = await fetch(`${API_BASE_URL}/Auth/signup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                FirstName: firstName, 
+                LastName: lastName, 
+                Email: email, 
+                Password: password, 
+                AccountType: accountType 
+            })
+        });
+
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Signup API error:', errorText);
+            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('Signup result:', result);
+        return result;
+    } catch (error) {
+        console.error('Signup error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function performLoginAPI(email, password) {
+    try {
+        console.log('Attempting login with:', { Email: email });
+        
+        const response = await fetch(`${API_BASE_URL}/Auth/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ Email: email, Password: password })
+        });
+
+        console.log('Login response status:', response.status);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Login API error:', errorText);
+            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+        }
+
+        const result = await response.json();
+        console.log('Login result:', result);
+        return result;
+    } catch (error) {
+        console.error('Login error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function logoutUserAPI() {
+    try {
+        const sessionToken = localStorage.getItem('sessionToken');
+        if (!sessionToken) {
+            return { success: false, error: 'No active session' };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/Auth/logout`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ SessionToken: sessionToken })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Logout API error:', errorText);
+            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Logout error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// Notification System
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 5000);
+}
+
+// Authentication UI Functions
+window.showSignupModal = function() {
+    const modal = new bootstrap.Modal(document.getElementById('signupModal'));
+    modal.show();
+};
+
+window.showLoginModal = function() {
+    const modal = new bootstrap.Modal(document.getElementById('loginModal'));
+    modal.show();
+};
+
+window.handleSignup = async function() {
+    const firstName = document.getElementById('signupFirstName').value.trim();
+    const lastName = document.getElementById('signupLastName').value.trim();
+    const email = document.getElementById('signupEmail').value.trim();
+    const password = document.getElementById('signupPassword').value;
+    const confirmPassword = document.getElementById('signupConfirmPassword').value;
+    const accountType = document.getElementById('signupAccountType').value;
+
+    if (!firstName || !lastName || !email || !password || !accountType) {
+        showNotification('Please fill in all required fields.', 'warning');
+        return;
+    }
+
+    if (password !== confirmPassword) {
+        showNotification('Passwords do not match.', 'warning');
+        return;
+    }
+
+    if (password.length < 6) {
+        showNotification('Password must be at least 6 characters.', 'warning');
+        return;
+    }
+
+    const result = await performSignup(firstName, lastName, email, password, accountType);
+    
+    if (result.success) {
+        showNotification('Account created successfully! Please log in.', 'success');
+        bootstrap.Modal.getInstance(document.getElementById('signupModal')).hide();
+        // Clear form
+        document.getElementById('signupForm').reset();
+    } else {
+        showNotification(result.error || 'Signup failed. Please try again.', 'danger');
+    }
+};
+
+window.handleLogin = async function() {
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+
+    if (!email || !password) {
+        showNotification('Please enter both email and password.', 'warning');
+        return;
+    }
+
+    const result = await performLogin(email, password);
+    
+    if (result.success) {
+        localStorage.setItem('sessionToken', result.sessionToken);
+        localStorage.setItem('userEmail', email);
+        localStorage.setItem('userName', result.userName);
+        localStorage.setItem('accountType', result.accountType);
+        
+        showNotification(`Welcome back, ${result.userName}!`, 'success');
+        bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+        
+        // Update UI
+        updateAuthUI();
+        
+        // Clear form
+        document.getElementById('loginForm').reset();
+    } else {
+        showNotification(result.error || 'Login failed. Please check your credentials.', 'danger');
+    }
+};
+
+window.logoutUser = async function() {
+    showNotification('Logging you out...', 'info');
+    
+    const result = await logoutUserAPI();
+    
+    if (result.success) {
+        // Clear local storage
+        localStorage.removeItem('sessionToken');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userName');
+        localStorage.removeItem('accountType');
+        
+        showNotification('You have been logged out successfully.', 'success');
+        
+        // Update UI
+        updateAuthUI();
+        
+        // Redirect to home page
+        showPage('home');
+    } else {
+        showNotification(result.error || 'Logout failed. Please try again.', 'danger');
+    }
+};
+
+function updateAuthUI() {
+    const sessionToken = localStorage.getItem('sessionToken');
+    const userName = localStorage.getItem('userName');
+    const accountType = localStorage.getItem('accountType');
+    
+    const loginSignupButtons = document.getElementById('loginSignupButtons');
+    const userInfo = document.getElementById('userInfo');
+    
+    console.log('updateAuthUI called:', { sessionToken, userName, loginSignupButtons, userInfo });
+    
+    if (sessionToken && userName) {
+        // User is logged in
+        console.log('User is logged in, hiding login/signup buttons');
+        if (loginSignupButtons) loginSignupButtons.classList.add('d-none');
+        if (userInfo) {
+            userInfo.classList.remove('d-none');
+            userInfo.innerHTML = `
+                <span class="text-primary me-3">
+                    Welcome, ${userName} (${accountType})
+                </span>
+                <button id="logoutBtn" class="btn btn-outline btn-sm" onclick="logoutUser()">Logout</button>
+            `;
+        }
+    } else {
+        // User is not logged in
+        console.log('User is not logged in, showing login/signup buttons');
+        if (loginSignupButtons) loginSignupButtons.classList.remove('d-none');
+        if (userInfo) userInfo.classList.add('d-none');
+    }
+}
+
+// Student Dashboard API Functions
+async function getAvailableTeachers(instrument = '') {
+    try {
+        const sessionToken = localStorage.getItem('sessionToken');
+        if (!sessionToken) {
+            return { success: false, error: 'No active session. Please login again.' };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/Auth/teachers/list`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionToken, instrument })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Get available teachers error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function getTeacherSchedule(teacherId) {
+    try {
+        const sessionToken = localStorage.getItem('sessionToken');
+        if (!sessionToken) {
+            return { success: false, error: 'No active session. Please login again.' };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/Auth/teacher-schedule/get`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionToken, teacherId })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Get teacher schedule error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function bookLesson(teacherId, instrument, lessonDate, lessonTime, lessonType) {
+    try {
+        const sessionToken = localStorage.getItem('sessionToken');
+        if (!sessionToken) {
+            return { success: false, error: 'No active session. Please login again.' };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/Auth/lessons/book`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                sessionToken, 
+                teacherId, 
+                instrument, 
+                lessonDate, 
+                lessonTime, 
+                lessonType 
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Book lesson error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function getStudentLessons() {
+    try {
+        const sessionToken = localStorage.getItem('sessionToken');
+        if (!sessionToken) {
+            return { success: false, error: 'No active session. Please login again.' };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/Auth/lessons/get`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionToken })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Get student lessons error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// Teacher Dashboard API Functions
+async function getTeacherProfile() {
+    try {
+        const sessionToken = localStorage.getItem('sessionToken');
+        if (!sessionToken) {
+            return { success: false, error: 'No active session. Please login again.' };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/Auth/teacher-profile/get`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionToken })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Get teacher profile error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function createTeacherProfile(name, instrument, bio, contactInfo) {
+    try {
+        const sessionToken = localStorage.getItem('sessionToken');
+        if (!sessionToken) {
+            return { success: false, error: 'No active session. Please login again.' };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/Auth/teacher-profile/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionToken, name, instrument, bio, contactInfo })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Create teacher profile error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function updateTeacherProfile(name, instrument, bio, contactInfo) {
+    try {
+        const sessionToken = localStorage.getItem('sessionToken');
+        if (!sessionToken) {
+            return { success: false, error: 'No active session. Please login again.' };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/auth/teacher/profile/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionToken, name, instrument, bio, contactInfo })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Update teacher profile error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function getTeacherAvailability() {
+    try {
+        const sessionToken = localStorage.getItem('sessionToken');
+        if (!sessionToken) {
+            return { success: false, error: 'No active session. Please login again.' };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/Auth/teacher-availability/get`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionToken })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Get teacher availability error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function setTeacherAvailability(availability) {
+    try {
+        const sessionToken = localStorage.getItem('sessionToken');
+        if (!sessionToken) {
+            return { success: false, error: 'No active session. Please login again.' };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/Auth/teacher-availability/set`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionToken, availability })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Set teacher availability error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function getTeacherLessons() {
+    try {
+        const sessionToken = localStorage.getItem('sessionToken');
+        if (!sessionToken) {
+            return { success: false, error: 'No active session. Please login again.' };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/Auth/lessons/get`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionToken })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Get teacher lessons error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// Student Dashboard UI Functions
+window.loadStudentDashboard = async function() {
+    const container = document.getElementById('student-dashboard');
+    if (!container) return;
+
+    // Check if user is logged in
+    const sessionToken = localStorage.getItem('sessionToken');
+    const accountType = localStorage.getItem('accountType');
+    
+    if (!sessionToken) {
+        container.innerHTML = `
+            <div class="container-fluid py-4">
+                <div class="alert alert-warning">
+                    <h4>Please Log In</h4>
+                    <p>You need to be logged in as a student to access the student dashboard.</p>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#loginModal">Log In</button>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    if (accountType !== 'student') {
+        container.innerHTML = `
+            <div class="container-fluid py-4">
+                <div class="alert alert-info">
+                    <h4>Teacher Account</h4>
+                    <p>You are logged in as a teacher. Switch to the teacher dashboard to manage your profile and lessons.</p>
+                    <a href="#teacher-dashboard" class="btn btn-primary" onclick="showPage('teacher-dashboard')">Go to Teacher Dashboard</a>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="container-fluid py-4">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+                <div>
+                    <h1 class="h2 mb-0">Student Dashboard</h1>
+                    <p class="text-muted mb-0">Find teachers, book lessons, and track your progress</p>
+                </div>
+                <div>
+                    <a href="#home" class="btn btn-outline-secondary" onclick="showPage('home')"><i class="fas fa-arrow-left me-1"></i> Back to Home</a>
+                </div>
+            </div>
+
+            <!-- Teacher Search -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-search me-2"></i>Find Teachers</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label for="instrumentFilter" class="form-label">Filter by Instrument:</label>
+                            <select id="instrumentFilter" class="form-select">
+                                <option value="">All Instruments</option>
+                                <option value="Piano">Piano</option>
+                                <option value="Guitar">Guitar</option>
+                                <option value="Violin">Violin</option>
+                                <option value="Drums">Drums</option>
+                                <option value="Bass">Bass</option>
+                                <option value="Saxophone">Saxophone</option>
+                                <option value="Flute">Flute</option>
+                                <option value="Voice">Voice</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">&nbsp;</label>
+                            <div>
+                                <button class="btn btn-primary" onclick="loadAvailableTeachers()">
+                                    <i class="fas fa-search me-1"></i>Search Teachers
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Available Teachers -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-users me-2"></i>Available Teachers</h5>
+                </div>
+                <div class="card-body">
+                    <div id="teachersList">
+                        <div class="text-center text-muted">
+                            <i class="fas fa-music fa-3x mb-3"></i>
+                            <p>Click "Search Teachers" to see available teachers</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Lessons -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-calendar-check me-2"></i>My Lessons</h5>
+                </div>
+                <div class="card-body">
+                    <div id="studentLessons">Loading your lessons...</div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    await loadStudentLessons();
+};
+
+window.loadAvailableTeachers = async function() {
+    const instrumentFilter = document.getElementById('instrumentFilter').value;
+    const teachersList = document.getElementById('teachersList');
+    
+    teachersList.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Loading teachers...</p></div>';
+    
+    const result = await getAvailableTeachers(instrumentFilter);
+    
+    if (result.success && result.teachers && result.teachers.length > 0) {
+        teachersList.innerHTML = result.teachers.map(teacher => `
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <h6 class="card-title">
+                                <i class="fas fa-user-tie me-2 text-primary"></i>${teacher.name}
+                            </h6>
+                            <p class="card-text">
+                                <strong><i class="fas fa-music me-1"></i>Instrument:</strong> ${teacher.instrument}<br>
+                                <strong><i class="fas fa-info-circle me-1"></i>Bio:</strong> ${teacher.bio}<br>
+                                <strong><i class="fas fa-envelope me-1"></i>Contact:</strong> ${teacher.contactInfo}<br>
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar-check me-1"></i>${teacher.availabilityCount} available time slots
+                                </small>
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button class="btn btn-primary" onclick="viewTeacherSchedule(${teacher.userId}, '${teacher.name}')">
+                                <i class="fas fa-calendar-alt me-1"></i>View Availability
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    } else {
+        teachersList.innerHTML = '<div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>No teachers found. Try adjusting your search criteria.</div>';
+    }
+};
+
+window.viewTeacherSchedule = async function(teacherId, teacherName) {
+    const teachersList = document.getElementById('teachersList');
+    teachersList.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Loading teacher availability...</p></div>';
+    
+    const result = await getTeacherSchedule(teacherId);
+    
+    if (result.success && result.availability && result.availability.length > 0) {
+        // Create a comprehensive availability view
+        const availabilityHtml = `
+            <div class="mb-3">
+                <button class="btn btn-outline-secondary" onclick="loadAvailableTeachers()">
+                    <i class="fas fa-arrow-left me-1"></i>Back to Teachers
+                </button>
+            </div>
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-calendar-alt me-2"></i>${teacherName}'s Availability</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        ${result.availability.map(slot => `
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card border-success">
+                                    <div class="card-body text-center">
+                                        <h6 class="card-title text-success">${slot.dayOfWeek}</h6>
+                                        <p class="card-text">
+                                            <i class="fas fa-clock me-1"></i>
+                                            ${slot.startTime} - ${slot.endTime}
+                                        </p>
+                                        <button class="btn btn-success btn-sm" onclick="bookLessonSlot(${teacherId}, '${teacherName}', '${slot.dayOfWeek}', '${slot.startTime}', '${slot.endTime}')">
+                                            <i class="fas fa-bookmark me-1"></i>Book This Slot
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        teachersList.innerHTML = availabilityHtml;
+    } else {
+        teachersList.innerHTML = `
+            <div class="alert alert-info">
+                <h6>No Availability Found</h6>
+                <p>This teacher hasn't set their availability yet. Please try another teacher.</p>
+                <button class="btn btn-outline-primary" onclick="loadAvailableTeachers()">Back to Teachers</button>
+            </div>
+        `;
+    }
+};
+
+window.bookLessonSlot = async function(teacherId, teacherName, dayOfWeek, startTime, endTime) {
+    // Create a booking modal
+    const modalHtml = `
+        <div class="modal fade" id="bookingModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Book Lesson with ${teacherName}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-info">
+                            <strong>Time Slot:</strong> ${dayOfWeek}, ${startTime} - ${endTime}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Lesson Date</label>
+                            <input type="date" id="lessonDate" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Instrument</label>
+                            <select id="lessonInstrument" class="form-select" required>
+                                <option value="">Select Instrument</option>
+                                <option value="Piano">Piano</option>
+                                <option value="Guitar">Guitar</option>
+                                <option value="Violin">Violin</option>
+                                <option value="Drums">Drums</option>
+                                <option value="Bass">Bass</option>
+                                <option value="Saxophone">Saxophone</option>
+                                <option value="Flute">Flute</option>
+                                <option value="Voice">Voice</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Lesson Type</label>
+                            <select id="lessonType" class="form-select" required>
+                                <option value="">Select Type</option>
+                                <option value="Virtual">Virtual</option>
+                                <option value="In-Person">In-Person</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-primary" onclick="confirmBooking(${teacherId}, '${teacherName}', '${dayOfWeek}', '${startTime}', '${endTime}')">
+                            <i class="fas fa-bookmark me-1"></i>Book Lesson
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    const existingModal = document.getElementById('bookingModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Add modal to page
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('bookingModal'));
+    modal.show();
+    
+    // Set minimum date to today
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('lessonDate').min = today;
+};
+
+window.confirmBooking = async function(teacherId, teacherName, dayOfWeek, startTime, endTime) {
+    const lessonDate = document.getElementById('lessonDate').value;
+    const instrument = document.getElementById('lessonInstrument').value;
+    const lessonType = document.getElementById('lessonType').value;
+    
+    if (!lessonDate || !instrument || !lessonType) {
+        showNotification('Please fill in all fields.', 'warning');
+        return;
+    }
+    
+    // Validate date is not in the past
+    const today = new Date().toISOString().split('T')[0];
+    if (lessonDate < today) {
+        showNotification('Please select a future date.', 'warning');
+        return;
+    }
+    
+    const result = await bookLesson(teacherId, instrument, lessonDate, startTime, lessonType);
+    
+    if (result.success) {
+        showNotification(`Lesson booked successfully with ${teacherName}!`, 'success');
+        bootstrap.Modal.getInstance(document.getElementById('bookingModal')).hide();
+        await loadStudentLessons(); // Refresh lessons
+        await loadAvailableTeachers(); // Go back to teachers list
+    } else {
+        showNotification(result.error || 'Failed to book lesson. Please try again.', 'danger');
+    }
+};
+
+async function loadStudentLessons() {
+    const studentLessons = document.getElementById('studentLessons');
+    if (!studentLessons) return;
+    
+    const result = await getStudentLessons();
+    
+    if (result.success && result.lessons && result.lessons.length > 0) {
+        studentLessons.innerHTML = `
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th><i class="fas fa-user-tie me-1"></i>Teacher</th>
+                            <th><i class="fas fa-music me-1"></i>Instrument</th>
+                            <th><i class="fas fa-calendar me-1"></i>Date</th>
+                            <th><i class="fas fa-clock me-1"></i>Time</th>
+                            <th><i class="fas fa-laptop me-1"></i>Type</th>
+                            <th><i class="fas fa-check-circle me-1"></i>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${result.lessons.map(lesson => `
+                            <tr>
+                                <td><strong>${lesson.teacherName || 'N/A'}</strong></td>
+                                <td><span class="badge bg-secondary">${lesson.instrument}</span></td>
+                                <td>${lesson.lessonDate}</td>
+                                <td>${lesson.lessonTime}</td>
+                                <td><span class="badge ${lesson.lessonType === 'Virtual' ? 'bg-info' : 'bg-warning'}">${lesson.lessonType}</span></td>
+                                <td><span class="badge bg-success">${lesson.status}</span></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    } else {
+        studentLessons.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>No lessons booked yet!</strong><br>
+                Find a teacher above and book your first lesson to get started.
+            </div>
+        `;
+    }
+}
+
+// Teacher Dashboard UI Functions
+window.loadTeacherDashboard = async function() {
+    const container = document.getElementById('teacher-dashboard');
+    if (!container) return;
+
+    // Check if user is logged in
+    const sessionToken = localStorage.getItem('sessionToken');
+    const accountType = localStorage.getItem('accountType');
+    
+    if (!sessionToken) {
+        container.innerHTML = `
+            <div class="container-fluid py-4">
+                <div class="alert alert-warning">
+                    <h4>Please Log In</h4>
+                    <p>You need to be logged in as a teacher to access the teacher dashboard.</p>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#loginModal">Log In</button>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    if (accountType !== 'teacher') {
+        container.innerHTML = `
+            <div class="container-fluid py-4">
+                <div class="alert alert-info">
+                    <h4>Student Account</h4>
+                    <p>You are logged in as a student. Switch to the student dashboard to find teachers and book lessons.</p>
+                    <a href="#student-dashboard" class="btn btn-primary" onclick="showPage('student-dashboard')">Go to Student Dashboard</a>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = `
+        <div class="container-fluid py-4">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
+                <div>
+                    <h1 class="h2 mb-0">Teacher Dashboard</h1>
+                    <p class="text-muted mb-0">Manage your profile, availability, and view your lessons</p>
+                </div>
+                <div>
+                    <a href="#home" class="btn btn-outline-secondary" onclick="showPage('home')"><i class="fas fa-arrow-left me-1"></i> Back to Home</a>
+                </div>
+            </div>
+
+            <!-- Teacher Profile -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-user-tie me-2"></i>My Profile</h5>
+                </div>
+                <div class="card-body">
+                    <div id="teacherProfileSummary">Loading profile...</div>
+                    <button class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#teacherProfileModal">
+                        <i class="fas fa-edit me-1"></i>Edit Profile
+                    </button>
+                </div>
+            </div>
+
+            <!-- Availability Management -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-calendar-alt me-2"></i>Set Weekly Availability</h5>
+                </div>
+                <div class="card-body">
+                    <div id="availabilityForm">
+                        <p class="text-muted mb-3">Set your weekly availability schedule. Students will be able to book lessons during these times.</p>
+                        <div class="row">
+                            ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => `
+                                <div class="col-md-6 col-lg-4 mb-3">
+                                    <div class="card border-primary">
+                                        <div class="card-body">
+                                            <h6 class="card-title text-primary">
+                                                <i class="fas fa-calendar-day me-1"></i>${day}
+                                            </h6>
+                                            <div class="form-check mb-2">
+                                                <input class="form-check-input" type="checkbox" id="${day.toLowerCase()}Available">
+                                                <label class="form-check-label" for="${day.toLowerCase()}Available">Available</label>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <label class="form-label small">Start Time</label>
+                                                    <input type="time" class="form-control form-control-sm" id="${day.toLowerCase()}Start">
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label small">End Time</label>
+                                                    <input type="time" class="form-control form-control-sm" id="${day.toLowerCase()}End">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button class="btn btn-success" onclick="saveTeacherAvailability()">
+                            <i class="fas fa-save me-1"></i>Save Availability
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Lessons -->
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-calendar-check me-2"></i>My Lessons</h5>
+                </div>
+                <div class="card-body">
+                    <div id="teacherLessons">Loading lessons...</div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    await loadTeacherProfile();
+    await loadTeacherLessons();
+    await loadTeacherAvailability();
+};
+
+async function loadTeacherProfile() {
+    const teacherProfileSummary = document.getElementById('teacherProfileSummary');
+    if (!teacherProfileSummary) return;
+    
+    const result = await getTeacherProfile();
+    
+    if (result.success && result.profile) {
+        const profile = result.profile;
+        teacherProfileSummary.innerHTML = `
+            <div class="row">
+                <div class="col-md-8">
+                    <h6>${profile.name}</h6>
+                    <p><strong>Instrument:</strong> ${profile.instrument}</p>
+                    <p><strong>Bio:</strong> ${profile.bio}</p>
+                    <p><strong>Contact:</strong> ${profile.contactInfo}</p>
+                </div>
+                <div class="col-md-4">
+                    <div class="text-end">
+                        <span class="badge bg-success">Profile Complete</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Populate modal fields for editing
+        document.getElementById('teacherName').value = profile.name;
+        document.getElementById('teacherInstrument').value = profile.instrument;
+        document.getElementById('teacherBio').value = profile.bio;
+        document.getElementById('teacherContact').value = profile.contactInfo;
+    } else {
+        teacherProfileSummary.innerHTML = `
+            <div class="alert alert-warning">
+                <h6>Profile Not Created</h6>
+                <p>Please create your teacher profile to start teaching.</p>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#teacherProfileModal">
+                    Create Profile
+                </button>
+            </div>
+        `;
+        
+        // Clear modal fields for new profile
+        document.getElementById('teacherName').value = '';
+        document.getElementById('teacherInstrument').value = '';
+        document.getElementById('teacherBio').value = '';
+        document.getElementById('teacherContact').value = '';
+    }
+}
+
+window.saveTeacherAvailability = async function() {
+    const availability = [];
+    
+    ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].forEach(day => {
+        const isAvailable = document.getElementById(`${day}Available`).checked;
+        const startTime = document.getElementById(`${day}Start`).value;
+        const endTime = document.getElementById(`${day}End`).value;
+        
+        if (isAvailable && startTime && endTime) {
+            availability.push({
+                dayOfWeek: day.charAt(0).toUpperCase() + day.slice(1),
+                startTime: startTime,
+                endTime: endTime
+            });
+        }
+    });
+    
+    if (availability.length === 0) {
+        showNotification('Please select at least one available time slot.', 'warning');
+        return;
+    }
+    
+    const result = await setTeacherAvailability(availability);
+    
+    if (result.success) {
+        showNotification('Availability saved successfully!', 'success');
+    } else {
+        showNotification(result.error || 'Failed to save availability. Please try again.', 'danger');
+    }
+};
+
+async function loadTeacherLessons() {
+    const teacherLessons = document.getElementById('teacherLessons');
+    if (!teacherLessons) return;
+    
+    const result = await getTeacherLessons();
+    
+    if (result.success && result.lessons && result.lessons.length > 0) {
+        teacherLessons.innerHTML = `
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th><i class="fas fa-user me-1"></i>Student</th>
+                            <th><i class="fas fa-music me-1"></i>Instrument</th>
+                            <th><i class="fas fa-calendar me-1"></i>Date</th>
+                            <th><i class="fas fa-clock me-1"></i>Time</th>
+                            <th><i class="fas fa-laptop me-1"></i>Type</th>
+                            <th><i class="fas fa-check-circle me-1"></i>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${result.lessons.map(lesson => `
+                            <tr>
+                                <td><strong>${lesson.studentName}</strong></td>
+                                <td><span class="badge bg-secondary">${lesson.instrument}</span></td>
+                                <td>${lesson.lessonDate}</td>
+                                <td>${lesson.lessonTime}</td>
+                                <td><span class="badge ${lesson.lessonType === 'Virtual' ? 'bg-info' : 'bg-warning'}">${lesson.lessonType}</span></td>
+                                <td><span class="badge bg-success">${lesson.status}</span></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    } else {
+        teacherLessons.innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>No lessons booked yet!</strong><br>
+                Set your availability above to start receiving bookings from students.
+            </div>
+        `;
+    }
+}
+
+async function loadTeacherAvailability() {
+    const result = await getTeacherAvailability();
+    
+    if (result.success && result.availability) {
+        result.availability.forEach(slot => {
+            const day = slot.dayOfWeek.toLowerCase();
+            const availableCheckbox = document.getElementById(`${day}Available`);
+            const startTimeInput = document.getElementById(`${day}Start`);
+            const endTimeInput = document.getElementById(`${day}End`);
+            
+            if (availableCheckbox && startTimeInput && endTimeInput) {
+                availableCheckbox.checked = true;
+                startTimeInput.value = slot.startTime;
+                endTimeInput.value = slot.endTime;
+            }
+        });
+    }
+}
+
+window.saveTeacherProfile = async function() {
+    const name = document.getElementById('teacherName').value.trim();
+    const instrument = document.getElementById('teacherInstrument').value;
+    const bio = document.getElementById('teacherBio').value.trim();
+    const contactInfo = document.getElementById('teacherContact').value.trim();
+    
+    if (!name || !instrument || !bio || !contactInfo) {
+        showNotification('Please fill in all fields.', 'warning');
+        return;
+    }
+    
+    // Check if profile exists to determine create vs update
+    const existingProfile = await getTeacherProfile();
+    let result;
+    
+    if (existingProfile.success && existingProfile.profile) {
+        result = await updateTeacherProfile(name, instrument, bio, contactInfo);
+    } else {
+        result = await createTeacherProfile(name, instrument, bio, contactInfo);
+    }
+    
+    if (result.success) {
+        showNotification('Profile saved successfully!', 'success');
+        bootstrap.Modal.getInstance(document.getElementById('teacherProfileModal')).hide();
+        await loadTeacherProfile(); // Refresh profile display
+    } else {
+        showNotification(result.error || 'Failed to save profile. Please try again.', 'danger');
+    }
+};
+
+// Password visibility toggle
+window.togglePasswordVisibility = function(inputId) {
+    const input = document.getElementById(inputId);
+    const icon = document.getElementById(inputId + 'Icon');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        input.type = 'password';
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+};
+
+// Modal switching functionality
+window.switchToSignup = function() {
+    const loginModalInstance = bootstrap.Modal.getInstance(document.getElementById('loginModal'));
+    if (loginModalInstance) {
+        loginModalInstance.hide();
+    }
+    
+    // Wait for modal to be fully hidden before showing the next one
+    setTimeout(() => {
+        // Remove focus from any elements in the hidden modal
+        document.getElementById('loginModal').querySelectorAll('*').forEach(el => {
+            if (el === document.activeElement) {
+                el.blur();
+            }
+        });
+        
+        const signupModal = new bootstrap.Modal(document.getElementById('signupModal'));
+        signupModal.show();
+    }, 500);
+};
+
+window.switchToLogin = function() {
+    const signupModalInstance = bootstrap.Modal.getInstance(document.getElementById('signupModal'));
+    if (signupModalInstance) {
+        signupModalInstance.hide();
+    }
+    
+    // Wait for modal to be fully hidden before showing the next one
+    setTimeout(() => {
+        // Remove focus from any elements in the hidden modal
+        document.getElementById('signupModal').querySelectorAll('*').forEach(el => {
+            if (el === document.activeElement) {
+                el.blur();
+            }
+        });
+        
+        const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+        loginModal.show();
+    }, 500);
+};
+
+// Enhanced form validation
+function validateEmail(email) {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+}
+
+function validatePassword(password) {
+    return password.length >= 6;
+}
+
+function showModalError(modalId, message) {
+    const errorDiv = document.getElementById(modalId + 'Error');
+    const successDiv = document.getElementById(modalId + 'Success');
+    
+    if (errorDiv && successDiv) {
+        errorDiv.textContent = message;
+        errorDiv.classList.remove('d-none');
+        successDiv.classList.add('d-none');
+    }
+}
+
+function showModalSuccess(modalId, message) {
+    const errorDiv = document.getElementById(modalId + 'Error');
+    const successDiv = document.getElementById(modalId + 'Success');
+    
+    if (errorDiv && successDiv) {
+        successDiv.textContent = message;
+        successDiv.classList.remove('d-none');
+        errorDiv.classList.add('d-none');
+    }
+}
+
+function hideModalMessages(modalId) {
+    const errorDiv = document.getElementById(modalId + 'Error');
+    const successDiv = document.getElementById(modalId + 'Success');
+    
+    if (errorDiv) errorDiv.classList.add('d-none');
+    if (successDiv) successDiv.classList.add('d-none');
+}
+
+function setButtonLoading(buttonId, isLoading) {
+    const button = document.querySelector(`[onclick="${buttonId}"]`);
+    if (button) {
+        const textSpan = button.querySelector('.btn-text');
+        const spinnerSpan = button.querySelector('.btn-spinner');
+        
+        if (isLoading) {
+            button.classList.add('loading');
+            button.disabled = true;
+        } else {
+            button.classList.remove('loading');
+            button.disabled = false;
+        }
+    }
+}
+
+// Initialize auth UI on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateAuthUI();
+    
+    // Add form validation on input
+    const emailInputs = document.querySelectorAll('input[type="email"]');
+    emailInputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            if (this.value && !validateEmail(this.value)) {
+                this.classList.add('is-invalid');
+                this.classList.remove('is-valid');
+            } else if (this.value) {
+                this.classList.add('is-valid');
+                this.classList.remove('is-invalid');
+            }
+        });
+    });
+    
+    const passwordInputs = document.querySelectorAll('input[type="password"]');
+    passwordInputs.forEach(input => {
+        input.addEventListener('blur', function() {
+            if (this.value && !validatePassword(this.value)) {
+                this.classList.add('is-invalid');
+                this.classList.remove('is-valid');
+            } else if (this.value) {
+                this.classList.add('is-valid');
+                this.classList.remove('is-invalid');
+            }
+        });
+    });
+});
+
 // Minimal navigation & smooth scrolling
 
 (function() {
@@ -704,52 +1992,123 @@ window.addAvailability = addAvailability;
 // SIMPLE AUTH (Mock)
 // ===========================================
 
-const users = [];
-let currentUser = null;
+// Mock data removed - using API-based authentication
 
-window.performSignup = function() {
-    const first = document.getElementById('suFirst').value.trim();
-    const last = document.getElementById('suLast').value.trim();
+window.performSignup = async function() {
+    const firstName = document.getElementById('suFirst').value.trim();
+    const lastName = document.getElementById('suLast').value.trim();
     const email = document.getElementById('suEmail').value.trim();
     const password = document.getElementById('suPassword').value;
     const password2 = document.getElementById('suPassword2').value;
-    const role = document.getElementById('suRole').value;
-    if (!first || !last || !email || !password || !password2) { alert('Please fill all fields'); return; }
-    if (password !== password2) { alert('Passwords do not match'); return; }
-    if (users.some(u => u.email === email)) { alert('Email already registered'); return; }
-    const user = { id: Date.now(), first, last, email, password, role };
-    users.push(user);
-    currentUser = user;
-    bootstrap.Modal.getInstance(document.getElementById('signupModal')).hide();
-    updateAuthHeader();
+    const accountType = document.querySelector('input[name="suRole"]:checked').value;
+    
+    // Clear previous messages
+    hideModalMessages('signup');
+    
+    // Validation
+    if (!firstName || !lastName || !email || !password || !password2) { 
+        showModalError('signup', 'Please fill in all required fields.');
+        return; 
+    }
+    
+    if (!validateEmail(email)) {
+        showModalError('signup', 'Please enter a valid email address.');
+        return;
+    }
+    
+    if (!validatePassword(password)) {
+        showModalError('signup', 'Password must be at least 6 characters long.');
+        return;
+    }
+    
+    if (password !== password2) { 
+        showModalError('signup', 'Passwords do not match.');
+        return; 
+    }
+    
+    // Set loading state
+    setButtonLoading('performSignup()', true);
+    
+    try {
+        const result = await performSignupAPI(firstName, lastName, email, password, accountType);
+        
+        if (result.success) {
+            showModalSuccess('signup', 'Account created successfully! Please sign in.');
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('signupModal')).hide();
+                // Clear form
+                document.getElementById('signupForm').reset();
+                hideModalMessages('signup');
+                // Switch to login modal
+                switchToLogin();
+            }, 1500);
+        } else {
+            // Show specific error message from API
+            const errorMessage = result.error || 'Failed to create account. Please try again.';
+            showModalError('signup', errorMessage);
+        }
+    } catch (error) {
+        console.error('Signup error:', error);
+        showModalError('signup', 'Unable to connect to server. Please check your internet connection and try again.');
+    } finally {
+        setButtonLoading('performSignup()', false);
+    }
 };
 
-window.performLogin = function() {
+window.performLogin = async function() {
     const email = document.getElementById('authLoginEmail').value.trim();
     const password = document.getElementById('authLoginPassword').value;
-    const user = users.find(u => u.email === email && u.password === password);
-    if (!user) { alert('Invalid credentials'); return; }
-    currentUser = user;
-    bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
-    updateAuthHeader();
+    
+    // Clear previous messages
+    hideModalMessages('login');
+    
+    // Validation
+    if (!email || !password) {
+        showModalError('login', 'Please enter both email and password.');
+        return;
+    }
+    
+    if (!validateEmail(email)) {
+        showModalError('login', 'Please enter a valid email address.');
+        return;
+    }
+    
+    // Set loading state
+    setButtonLoading('performLogin()', true);
+    
+    try {
+        const result = await performLoginAPI(email, password);
+        
+        if (result.success) {
+            localStorage.setItem('sessionToken', result.sessionToken);
+            localStorage.setItem('userEmail', email);
+            localStorage.setItem('userName', `${result.user.firstName} ${result.user.lastName}`);
+            localStorage.setItem('accountType', result.user.accountType);
+            
+            showModalSuccess('login', `Welcome back, ${result.user.firstName}!`);
+            
+            setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+                // Clear form
+                document.getElementById('loginForm').reset();
+                hideModalMessages('login');
+                // Update UI
+                updateAuthUI();
+            }, 1500);
+        } else {
+            // Show specific error message from API
+            const errorMessage = result.error || 'Invalid credentials. Please try again.';
+            showModalError('login', errorMessage);
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        showModalError('login', 'Unable to connect to server. Please check your internet connection and try again.');
+    } finally {
+        setButtonLoading('performLogin()', false);
+    }
 };
 
-function updateAuthHeader() {
-    const actions = document.querySelector('.auth-actions');
-    if (!actions) return;
-    actions.innerHTML = currentUser ? `
-        <span class="me-2">Hi, ${currentUser.first}</span>
-        <button class="btn btn-outline btn-sm" onclick="logoutUser()">Logout</button>
-    ` : `
-        <button class="btn btn-outline btn-sm" data-bs-toggle="modal" data-bs-target="#loginModal">Log In</button>
-        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#signupModal">Sign Up</button>
-    `;
-}
-
-window.logoutUser = function() {
-    currentUser = null;
-    updateAuthHeader();
-};
+// Old mock authentication functions removed - using API-based authentication
 
 // ===========================================
 // STUDENT DASHBOARD FUNCTIONALITY
@@ -938,3 +2297,21 @@ window.saveEndLesson = function() {
     bootstrap.Modal.getInstance(document.getElementById('endLessonModal')).hide();
     alert('Lesson summary saved. Great job!');
 };
+
+// Test function to verify button visibility
+function testButtonVisibility() {
+    const loginBtn = document.getElementById('loginBtn');
+    const signupBtn = document.getElementById('signupBtn');
+    const loginSignupButtons = document.getElementById('loginSignupButtons');
+    
+    console.log('Button visibility test:', {
+        loginBtn: loginBtn,
+        signupBtn: signupBtn,
+        loginSignupButtons: loginSignupButtons,
+        hasDNone: loginSignupButtons ? loginSignupButtons.classList.contains('d-none') : 'N/A',
+        computedStyle: loginSignupButtons ? window.getComputedStyle(loginSignupButtons).display : 'N/A'
+    });
+}
+
+// Make test function available globally
+window.testButtonVisibility = testButtonVisibility;

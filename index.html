@@ -32,9 +32,15 @@
                 <a href="#teacher-dashboard" class="nav-link" onclick="showPage('teacher-dashboard')">For Teachers</a>
                 <a href="#admin-dashboard" class="nav-link" onclick="showPage('admin-dashboard')">Admin Dashboard</a>
                 <span class="nav-divider"></span>
-                <div class="auth-actions">
-                    <button class="btn btn-outline btn-sm" data-bs-toggle="modal" data-bs-target="#loginModal">Log In</button>
-                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#signupModal">Sign Up</button>
+                <div class="auth-actions d-flex align-items-center">
+                    <div id="loginSignupButtons">
+                        <button id="loginBtn" class="btn btn-outline btn-sm me-2" data-bs-toggle="modal" data-bs-target="#loginModal">Log In</button>
+                        <button id="signupBtn" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#signupModal">Sign Up</button>
+                    </div>
+                    <div id="userInfo" class="d-none ms-auto">
+                        <span class="text-primary me-3"></span>
+                        <button id="logoutBtn" class="btn btn-outline btn-sm" onclick="logoutUser()">Logout</button>
+                    </div>
                 </div>
             </nav>
         </div>
@@ -1001,25 +1007,51 @@
 
     <!-- Login Modal -->
     <div class="modal fade" id="loginModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Log In</h5>
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content auth-modal">
+                <div class="modal-header auth-header">
+                    <h5 class="modal-title">Welcome Back</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Email</label>
-                        <input type="email" id="authLoginEmail" class="form-control" placeholder="you@example.com">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Password</label>
-                        <input type="password" id="authLoginPassword" class="form-control" placeholder="••••••••">
-                    </div>
+                <div class="modal-body auth-body">
+                    <div id="loginError" class="alert alert-danger d-none" role="alert"></div>
+                    <div id="loginSuccess" class="alert alert-success d-none" role="alert"></div>
+                    
+                    <form id="loginForm">
+                        <div class="mb-3">
+                            <label class="form-label">Email Address</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                <input type="email" id="authLoginEmail" class="form-control auth-input" placeholder="Enter your email" required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                <input type="password" id="authLoginPassword" class="form-control auth-input" placeholder="Enter your password" required>
+                                <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('authLoginPassword')">
+                                    <i class="fas fa-eye" id="authLoginPasswordIcon"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="rememberMe">
+                            <label class="form-check-label" for="rememberMe">Remember me</label>
+                        </div>
+                    </form>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="performLogin()">Log In</button>
+                <div class="modal-footer auth-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary auth-btn" onclick="performLogin()">
+                        <span class="btn-text">Sign In</span>
+                        <span class="btn-spinner d-none"><i class="fas fa-spinner fa-spin"></i></span>
+                    </button>
+                </div>
+                <div class="modal-footer auth-switch">
+                    <p class="text-center mb-0">Don't have an account? 
+                        <a href="#" onclick="switchToSignup()" class="auth-link">Sign up here</a>
+                    </p>
                 </div>
             </div>
         </div>
@@ -1027,46 +1059,141 @@
 
     <!-- Sign Up Modal -->
     <div class="modal fade" id="signupModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content auth-modal">
+                <div class="modal-header auth-header">
+                    <h5 class="modal-title">Create Your Account</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body auth-body">
+                    <div id="signupError" class="alert alert-danger d-none" role="alert"></div>
+                    <div id="signupSuccess" class="alert alert-success d-none" role="alert"></div>
+                    
+                    <form id="signupForm">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">First Name</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                    <input type="text" id="suFirst" class="form-control auth-input" placeholder="Enter first name" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Last Name</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                    <input type="text" id="suLast" class="form-control auth-input" placeholder="Enter last name" required>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">Email Address</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-envelope"></i></span>
+                                    <input type="email" id="suEmail" class="form-control auth-input" placeholder="Enter your email" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Password</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                    <input type="password" id="suPassword" class="form-control auth-input" placeholder="Create password" required>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('suPassword')">
+                                        <i class="fas fa-eye" id="suPasswordIcon"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">Must be at least 6 characters</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Confirm Password</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                    <input type="password" id="suPassword2" class="form-control auth-input" placeholder="Confirm password" required>
+                                    <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('suPassword2')">
+                                        <i class="fas fa-eye" id="suPassword2Icon"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label">I am a</label>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="suRole" id="studentRole" value="student" checked>
+                                            <label class="form-check-label" for="studentRole">
+                                                <i class="fas fa-graduation-cap me-2"></i>Student
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="suRole" id="teacherRole" value="teacher">
+                                            <label class="form-check-label" for="teacherRole">
+                                                <i class="fas fa-music me-2"></i>Teacher
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer auth-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary auth-btn" onclick="performSignup()">
+                        <span class="btn-text">Create Account</span>
+                        <span class="btn-spinner d-none"><i class="fas fa-spinner fa-spin"></i></span>
+                    </button>
+                </div>
+                <div class="modal-footer auth-switch">
+                    <p class="text-center mb-0">Already have an account? 
+                        <a href="#" onclick="switchToLogin()" class="auth-link">Sign in here</a>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Teacher Profile Modal -->
+    <div class="modal fade" id="teacherProfileModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Create Account</h5>
+                    <h5 class="modal-title">Teacher Profile</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <div class="row g-2">
-                        <div class="col-6">
-                            <label class="form-label">First Name</label>
-                            <input type="text" id="suFirst" class="form-control">
-                        </div>
-                        <div class="col-6">
-                            <label class="form-label">Last Name</label>
-                            <input type="text" id="suLast" class="form-control">
+                    <div class="row">
+                        <div class="col-12">
+                            <label class="form-label">Full Name</label>
+                            <input type="text" id="teacherName" class="form-control" placeholder="Enter your full name">
                         </div>
                         <div class="col-12">
-                            <label class="form-label">Email</label>
-                            <input type="email" id="suEmail" class="form-control">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Password</label>
-                            <input type="password" id="suPassword" class="form-control">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">Confirm Password</label>
-                            <input type="password" id="suPassword2" class="form-control">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label">I am a</label>
-                            <select id="suRole" class="form-select">
-                                <option value="student">Student</option>
-                                <option value="teacher">Teacher</option>
+                            <label class="form-label">Instrument</label>
+                            <select id="teacherInstrument" class="form-select">
+                                <option value="">Select Instrument</option>
+                                <option value="Piano">Piano</option>
+                                <option value="Guitar">Guitar</option>
+                                <option value="Violin">Violin</option>
+                                <option value="Drums">Drums</option>
+                                <option value="Bass">Bass</option>
+                                <option value="Saxophone">Saxophone</option>
+                                <option value="Flute">Flute</option>
+                                <option value="Cello">Cello</option>
                             </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Bio</label>
+                            <textarea id="teacherBio" class="form-control" rows="3" placeholder="Tell students about your teaching experience and style"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Contact Information</label>
+                            <input type="text" id="teacherContact" class="form-control" placeholder="Email, phone, or preferred contact method">
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" onclick="performSignup()">Create Account</button>
+                    <button type="button" class="btn btn-primary" onclick="saveTeacherProfile()">Save Profile</button>
                 </div>
             </div>
         </div>
