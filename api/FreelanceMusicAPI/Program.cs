@@ -1,8 +1,3 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Configuration;
-
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -13,16 +8,20 @@ builder.Services.AddSwaggerGen();
 // Add CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFrontend", policy =>
+    options.AddPolicy("AllowAll", policy =>
     {
-        policy.WithOrigins("http://localhost:5500", "http://127.0.0.1:5500", "https://localhost:5500")
-              .AllowAnyHeader()
+        policy.AllowAnyOrigin()
               .AllowAnyMethod()
-              .AllowCredentials();
+              .AllowAnyHeader();
     });
 });
 
 var app = builder.Build();
+
+// Seed database with sample data
+var connectionString = app.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=freelance_music.db";
+var dataSeeder = new DataSeeder(connectionString);
+dataSeeder.SeedDatabase();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -31,13 +30,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// app.UseHttpsRedirection(); // Removed for simpler HTTP development
+app.UseHttpsRedirection();
 
 // Enable CORS
-app.UseCors("AllowFrontend");
+app.UseCors("AllowAll");
 
-app.UseAuthorization();
-
+// Add controllers
 app.MapControllers();
 
 app.Run();

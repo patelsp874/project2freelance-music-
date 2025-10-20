@@ -1,0 +1,6 @@
+C:\MIS 321\no2PA\obj\Debug\net8.0\test-database.csproj.AssemblyReference.cache
+C:\MIS 321\no2PA\obj\Debug\net8.0\test-database.GeneratedMSBuildEditorConfig.editorconfig
+C:\MIS 321\no2PA\obj\Debug\net8.0\test-database.AssemblyInfoInputs.cache
+C:\MIS 321\no2PA\obj\Debug\net8.0\test-database.AssemblyInfo.cs
+C:\MIS 321\no2PA\obj\Debug\net8.0\test-database.csproj.CoreCompileInputs.cache
+C:\MIS 321\no2PA\obj\Debug\net8.0\test-database.sourcelink.json
