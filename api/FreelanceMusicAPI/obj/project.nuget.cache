@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "lATwz5yaXXM=",
+  "dgSpecHash": "9ZhNRGuOKpg=",
   "success": true,
-  "projectFilePath": "C:\\MIS 321\\no2PA\\api\\FreelanceMusicAPI\\FreelanceMusicAPI.csproj",
+  "projectFilePath": "C:\\MIS 321\\nopa2\\project2freelance-music-\\api\\FreelanceMusicAPI\\FreelanceMusicAPI.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\sruja\\.nuget\\packages\\microsoft.aspnetcore.openapi\\8.0.21\\microsoft.aspnetcore.openapi.8.0.21.nupkg.sha512",
     "C:\\Users\\sruja\\.nuget\\packages\\microsoft.data.sqlite\\9.0.10\\microsoft.data.sqlite.9.0.10.nupkg.sha512",

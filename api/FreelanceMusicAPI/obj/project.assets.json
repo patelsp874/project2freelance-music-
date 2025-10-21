@@ -808,11 +808,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\MIS 321\\no2PA\\api\\FreelanceMusicAPI\\FreelanceMusicAPI.csproj",
+      "projectUniqueName": "C:\\MIS 321\\nopa2\\project2freelance-music-\\api\\FreelanceMusicAPI\\FreelanceMusicAPI.csproj",
       "projectName": "FreelanceMusicAPI",
-      "projectPath": "C:\\MIS 321\\no2PA\\api\\FreelanceMusicAPI\\FreelanceMusicAPI.csproj",
+      "projectPath": "C:\\MIS 321\\nopa2\\project2freelance-music-\\api\\FreelanceMusicAPI\\FreelanceMusicAPI.csproj",
       "packagesPath": "C:\\Users\\sruja\\.nuget\\packages\\",
-      "outputPath": "C:\\MIS 321\\no2PA\\api\\FreelanceMusicAPI\\obj\\",
+      "outputPath": "C:\\MIS 321\\nopa2\\project2freelance-music-\\api\\FreelanceMusicAPI\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\sruja\\AppData\\Roaming\\NuGet\\NuGet.Config"

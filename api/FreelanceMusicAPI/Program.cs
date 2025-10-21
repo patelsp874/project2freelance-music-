@@ -16,12 +16,12 @@ builder.Services.AddCors(options =>
     });
 });
 
+// Initialize database if it doesn't exist
+FreelanceMusicAPI.Database.DatabaseInitializer.InitializeDatabase();
+
 var app = builder.Build();
 
-// Seed database with sample data
-var connectionString = app.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=freelance_music.db";
-var dataSeeder = new DataSeeder(connectionString);
-dataSeeder.SeedDatabase();
+// Database seeding removed - data will persist from previous runs
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
