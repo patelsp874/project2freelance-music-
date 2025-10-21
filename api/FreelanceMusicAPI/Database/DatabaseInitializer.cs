@@ -32,7 +32,8 @@ namespace FreelanceMusicAPI.Database
                                 student_name TEXT NOT NULL,
                                 student_email TEXT NOT NULL UNIQUE,
                                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                studentpassword INTEGER UNIQUE
                             );");
 
                         // Create Teacher Table
@@ -44,8 +45,8 @@ namespace FreelanceMusicAPI.Database
                                 instrument TEXT NOT NULL,
                                 class_full INTEGER DEFAULT 0 CHECK (class_full IN (0, 1)),
                                 class_limit INTEGER DEFAULT 10,
+                                current_class INTEGER DEFAULT 0,
                                 bio TEXT,
-                                charges_per_session DECIMAL(10,2) DEFAULT 0.00,
                                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                             );");
@@ -125,11 +126,11 @@ namespace FreelanceMusicAPI.Database
 
             // Insert sample teachers
             ExecuteCommand(connection, @"
-                INSERT INTO Teacher (teacher_name, teacher_email, instrument, class_full, class_limit, bio, charges_per_session) VALUES 
-                ('Alice Wilson', 'alice.wilson@email.com', 'Piano', 0, 8, 'Professional pianist with 15 years of teaching experience', 45.00),
-                ('Bob Brown', 'bob.brown@email.com', 'Guitar', 0, 10, 'Classical and acoustic guitar specialist', 40.00),
-                ('Carol Green', 'carol.green@email.com', 'Violin', 1, 6, 'Orchestral violinist and music theory expert', 50.00),
-                ('David Lee', 'david.lee@email.com', 'Drums', 0, 12, 'Jazz and rock drumming instructor', 35.00);");
+                INSERT INTO Teacher (teacher_name, teacher_email, instrument, class_full, class_limit, current_class, bio) VALUES 
+                ('Alice Wilson', 'alice.wilson@email.com', 'Piano', 0, 8, 0, 'Professional pianist with 15 years of teaching experience'),
+                ('Bob Brown', 'bob.brown@email.com', 'Guitar', 0, 10, 0, 'Classical and acoustic guitar specialist'),
+                ('Carol Green', 'carol.green@email.com', 'Violin', 1, 6, 6, 'Orchestral violinist and music theory expert'),
+                ('David Lee', 'david.lee@email.com', 'Drums', 0, 12, 0, 'Jazz and rock drumming instructor');");
 
             // Insert teacher availability
             ExecuteCommand(connection, @"

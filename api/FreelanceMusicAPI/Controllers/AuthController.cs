@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using System.Security.Cryptography;
-using System.Text;
 
 namespace FreelanceMusicAPI.Controllers
 {
@@ -23,102 +22,96 @@ namespace FreelanceMusicAPI.Controllers
             {
                 connection.Open();
                 
-                // Create Users table
-                var createUsersTableCmd = connection.CreateCommand();
-                createUsersTableCmd.CommandText = @"
-                    CREATE TABLE IF NOT EXISTS Users (
-                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        FirstName TEXT NOT NULL,
-                        LastName TEXT NOT NULL,
-                        Email TEXT UNIQUE NOT NULL,
-                        Password TEXT NOT NULL,
-                        AccountType TEXT NOT NULL,
-                        CreatedAt TEXT NOT NULL
+                // Enable foreign key constraints
+                var pragmaCmd = connection.CreateCommand();
+                pragmaCmd.CommandText = "PRAGMA foreign_keys = ON;";
+                pragmaCmd.ExecuteNonQuery();
+
+                // Create Student table (matching your schema)
+                var createStudentTableCmd = connection.CreateCommand();
+                createStudentTableCmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS Student (
+                        student_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        student_name TEXT NOT NULL,
+                        student_email TEXT NOT NULL UNIQUE,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        studentpassword INTEGER UNIQUE
                     );";
-                createUsersTableCmd.ExecuteNonQuery();
+                createStudentTableCmd.ExecuteNonQuery();
 
-                // Create Sessions table
-                var createSessionsTableCmd = connection.CreateCommand();
-                createSessionsTableCmd.CommandText = @"
-                    CREATE TABLE IF NOT EXISTS Sessions (
-                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        UserId INTEGER NOT NULL,
-                        SessionToken TEXT UNIQUE NOT NULL,
-                        CreatedAt TEXT NOT NULL,
-                        ExpiresAt TEXT NOT NULL,
-                        FOREIGN KEY (UserId) REFERENCES Users (Id) ON DELETE CASCADE
-                    );
-                    CREATE INDEX IF NOT EXISTS IX_Sessions_SessionToken ON Sessions (SessionToken);
-                    CREATE INDEX IF NOT EXISTS IX_Sessions_UserId ON Sessions (UserId);
-                    CREATE UNIQUE INDEX IF NOT EXISTS IX_Users_Email ON Users (Email);
-                ";
-                createSessionsTableCmd.ExecuteNonQuery();
+                // Create Teacher table (matching your schema with current_class and password added)
+                var createTeacherTableCmd = connection.CreateCommand();
+                createTeacherTableCmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS Teacher (
+                        teacher_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        teacher_name TEXT NOT NULL,
+                        teacher_email TEXT NOT NULL UNIQUE,
+                        teacher_password INTEGER UNIQUE,
+                        instrument TEXT NOT NULL,
+                        class_full INTEGER DEFAULT 0 CHECK (class_full IN (0, 1)),
+                        class_limit INTEGER DEFAULT 10,
+                        current_class INTEGER DEFAULT 0,
+                        bio TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                    );";
+                createTeacherTableCmd.ExecuteNonQuery();
 
-                // Create TeacherProfiles table
-                var createTeacherProfilesTableCmd = connection.CreateCommand();
-                createTeacherProfilesTableCmd.CommandText = @"
-                    CREATE TABLE IF NOT EXISTS TeacherProfiles (
-                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        UserId INTEGER NOT NULL,
-                        Name TEXT NOT NULL,
-                        Instrument TEXT NOT NULL,
-                        Bio TEXT NOT NULL,
-                        ContactInfo TEXT NOT NULL,
-                        CreatedAt TEXT NOT NULL,
-                        UpdatedAt TEXT NOT NULL,
-                        FOREIGN KEY (UserId) REFERENCES Users (Id) ON DELETE CASCADE
-                    );
-                    CREATE INDEX IF NOT EXISTS IX_TeacherProfiles_UserId ON TeacherProfiles (UserId);
-                    CREATE UNIQUE INDEX IF NOT EXISTS IX_TeacherProfiles_UserId_Unique ON TeacherProfiles (UserId);
-                ";
-                createTeacherProfilesTableCmd.ExecuteNonQuery();
+                // Add teacherpassword column if it doesn't exist (for existing databases)
+                try
+                {
+                    var alterTeacherTableCmd = connection.CreateCommand();
+                    alterTeacherTableCmd.CommandText = "ALTER TABLE Teacher ADD COLUMN teacher_password INTEGER UNIQUE;";
+                    alterTeacherTableCmd.ExecuteNonQuery();
+                }
+                catch (SqliteException)
+                {
+                    // Column already exists, ignore the error
+                }
 
-                // Create TeacherAvailability table
+                // Create Student_Studying table (matching your schema)
+                var createStudentStudyingTableCmd = connection.CreateCommand();
+                createStudentStudyingTableCmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS Student_Studying (
+                        student_id INTEGER NOT NULL,
+                        teacher_id INTEGER NOT NULL,
+                        day TEXT NOT NULL CHECK (day IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')),
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (student_id, teacher_id, day),
+                        FOREIGN KEY (student_id) REFERENCES Student(student_id) ON DELETE CASCADE,
+                        FOREIGN KEY (teacher_id) REFERENCES Teacher(teacher_id) ON DELETE CASCADE
+                    );";
+                createStudentStudyingTableCmd.ExecuteNonQuery();
+
+                // Create Teacher_Day_Availability table (matching your schema)
                 var createTeacherAvailabilityTableCmd = connection.CreateCommand();
                 createTeacherAvailabilityTableCmd.CommandText = @"
-                    CREATE TABLE IF NOT EXISTS TeacherAvailability (
-                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        TeacherId INTEGER NOT NULL,
-                        DayOfWeek TEXT NOT NULL,
-                        StartTime TEXT NOT NULL,
-                        EndTime TEXT NOT NULL,
-                        IsAvailable BOOLEAN NOT NULL DEFAULT 1,
-                        CreatedAt TEXT NOT NULL,
-                        UpdatedAt TEXT NOT NULL,
-                        FOREIGN KEY (TeacherId) REFERENCES Users (Id) ON DELETE CASCADE
-                    );
-                    CREATE INDEX IF NOT EXISTS IX_TeacherAvailability_TeacherId ON TeacherAvailability (TeacherId);
-                    CREATE INDEX IF NOT EXISTS IX_TeacherAvailability_DayOfWeek ON TeacherAvailability (DayOfWeek);
-                ";
+                    CREATE TABLE IF NOT EXISTS Teacher_Day_Availability (
+                        teacher_id INTEGER NOT NULL,
+                        day TEXT NOT NULL CHECK (day IN ('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday')),
+                        available INTEGER DEFAULT 1 CHECK (available IN (0, 1)),
+                        start_time TIME,
+                        end_time TIME,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        PRIMARY KEY (teacher_id, day),
+                        FOREIGN KEY (teacher_id) REFERENCES Teacher(teacher_id) ON DELETE CASCADE
+                    );";
                 createTeacherAvailabilityTableCmd.ExecuteNonQuery();
 
-                // Create Lessons table
-                var createLessonsTableCmd = connection.CreateCommand();
-                createLessonsTableCmd.CommandText = @"
-                    CREATE TABLE IF NOT EXISTS Lessons (
-                        Id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        TeacherId INTEGER NOT NULL,
-                        StudentId INTEGER,
-                        StudentName TEXT NOT NULL,
-                        Instrument TEXT NOT NULL,
-                        LessonDate TEXT NOT NULL,
-                        LessonTime TEXT NOT NULL,
-                        LessonType TEXT NOT NULL,
-                        LessonMaterial TEXT,
-                        MaterialFileName TEXT,
-                        MaterialFileSize INTEGER,
-                        MaterialMimeType TEXT,
-                        Status TEXT NOT NULL DEFAULT 'scheduled',
-                        CreatedAt TEXT NOT NULL,
-                        UpdatedAt TEXT NOT NULL,
-                        FOREIGN KEY (TeacherId) REFERENCES Users (Id) ON DELETE CASCADE,
-                        FOREIGN KEY (StudentId) REFERENCES Users (Id) ON DELETE SET NULL
-                    );
-                    CREATE INDEX IF NOT EXISTS IX_Lessons_TeacherId ON Lessons (TeacherId);
-                    CREATE INDEX IF NOT EXISTS IX_Lessons_StudentId ON Lessons (StudentId);
-                    CREATE INDEX IF NOT EXISTS IX_Lessons_LessonDate ON Lessons (LessonDate);
+                // Create indexes for better performance
+                var createIndexesCmd = connection.CreateCommand();
+                createIndexesCmd.CommandText = @"
+                    CREATE INDEX IF NOT EXISTS idx_student_email ON Student(student_email);
+                    CREATE INDEX IF NOT EXISTS idx_teacher_email ON Teacher(teacher_email);
+                    CREATE INDEX IF NOT EXISTS idx_teacher_instrument ON Teacher(instrument);
+                    CREATE INDEX IF NOT EXISTS idx_student_studying_student ON Student_Studying(student_id);
+                    CREATE INDEX IF NOT EXISTS idx_student_studying_teacher ON Student_Studying(teacher_id);
+                    CREATE INDEX IF NOT EXISTS idx_teacher_availability_teacher ON Teacher_Day_Availability(teacher_id);
+                    CREATE INDEX IF NOT EXISTS idx_teacher_availability_day ON Teacher_Day_Availability(day);
                 ";
-                createLessonsTableCmd.ExecuteNonQuery();
+                createIndexesCmd.ExecuteNonQuery();
             }
         }
 
@@ -141,32 +134,85 @@ namespace FreelanceMusicAPI.Controllers
             {
                 connection.Open();
 
-                // Check if email already exists
+                int userId;
+                string userType;
+
+                if (request.AccountType.ToLower() == "student")
+                {
+                    // Check if student email already exists
                 var checkEmailCmd = connection.CreateCommand();
-                checkEmailCmd.CommandText = "SELECT COUNT(*) FROM Users WHERE Email = @email";
+                    checkEmailCmd.CommandText = "SELECT COUNT(*) FROM Student WHERE student_email = @email";
                 checkEmailCmd.Parameters.AddWithValue("@email", request.Email);
                 if (Convert.ToInt32(checkEmailCmd.ExecuteScalar()) > 0)
                 {
                     return BadRequest(new { success = false, error = "Email already registered." });
                 }
 
-                // Insert new user
-                var insertUserCmd = connection.CreateCommand();
-                insertUserCmd.CommandText = @"
-                    INSERT INTO Users (FirstName, LastName, Email, Password, AccountType, CreatedAt)
-                    VALUES (@firstName, @lastName, @email, @password, @accountType, @createdAt);
+                    // Insert new student
+                    var insertStudentCmd = connection.CreateCommand();
+                    insertStudentCmd.CommandText = @"
+                        INSERT INTO Student (student_name, student_email, studentpassword, created_at, updated_at)
+                        VALUES (@name, @email, @password, @createdAt, @updatedAt);
                     SELECT last_insert_rowid();";
 
-                insertUserCmd.Parameters.AddWithValue("@firstName", request.FirstName);
-                insertUserCmd.Parameters.AddWithValue("@lastName", request.LastName);
-                insertUserCmd.Parameters.AddWithValue("@email", request.Email);
-                insertUserCmd.Parameters.AddWithValue("@password", request.Password);
-                insertUserCmd.Parameters.AddWithValue("@accountType", request.AccountType);
-                insertUserCmd.Parameters.AddWithValue("@createdAt", DateTime.UtcNow.ToString("o"));
+                    var now = DateTime.UtcNow.ToString("o");
+                    var fullName = $"{request.FirstName} {request.LastName}";
+                    insertStudentCmd.Parameters.AddWithValue("@name", fullName);
+                    insertStudentCmd.Parameters.AddWithValue("@email", request.Email);
+                    insertStudentCmd.Parameters.AddWithValue("@password", request.Password.GetHashCode()); // Simple hash
+                    insertStudentCmd.Parameters.AddWithValue("@createdAt", now);
+                    insertStudentCmd.Parameters.AddWithValue("@updatedAt", now);
 
-                var userId = Convert.ToInt32(insertUserCmd.ExecuteScalar());
+                    userId = Convert.ToInt32(insertStudentCmd.ExecuteScalar());
+                    userType = "student";
+                }
+                else if (request.AccountType.ToLower() == "teacher")
+                {
+                    // Check if teacher email already exists
+                    var checkEmailCmd = connection.CreateCommand();
+                    checkEmailCmd.CommandText = "SELECT COUNT(*) FROM Teacher WHERE teacher_email = @email";
+                    checkEmailCmd.Parameters.AddWithValue("@email", request.Email);
+                    if (Convert.ToInt32(checkEmailCmd.ExecuteScalar()) > 0)
+                    {
+                        return BadRequest(new { success = false, error = "Email already registered." });
+                    }
 
-                return Ok(new { success = true, message = "User created successfully", userId = userId });
+                    // Insert new teacher
+                    var insertTeacherCmd = connection.CreateCommand();
+                    insertTeacherCmd.CommandText = @"
+                        INSERT INTO Teacher (teacher_name, teacher_email, teacher_password, instrument, class_full, class_limit, current_class, bio, created_at, updated_at)
+                        VALUES (@name, @email, @password, @instrument, 0, 10, 0, @bio, @createdAt, @updatedAt);
+                        SELECT last_insert_rowid();";
+
+                    var now = DateTime.UtcNow.ToString("o");
+                    var fullName = $"{request.FirstName} {request.LastName}";
+                    insertTeacherCmd.Parameters.AddWithValue("@name", fullName);
+                    insertTeacherCmd.Parameters.AddWithValue("@email", request.Email);
+                    insertTeacherCmd.Parameters.AddWithValue("@password", request.Password.GetHashCode()); // Same hash as student
+                    insertTeacherCmd.Parameters.AddWithValue("@instrument", "Not specified"); // Default value
+                    insertTeacherCmd.Parameters.AddWithValue("@bio", "New teacher profile"); // Default value
+                    insertTeacherCmd.Parameters.AddWithValue("@createdAt", now);
+                    insertTeacherCmd.Parameters.AddWithValue("@updatedAt", now);
+
+                    userId = Convert.ToInt32(insertTeacherCmd.ExecuteScalar());
+                    userType = "teacher";
+                    }
+                    else
+                    {
+                    return BadRequest(new { success = false, error = "Invalid account type. Must be 'student' or 'teacher'." });
+                }
+
+                return Ok(new { 
+                    success = true, 
+                    message = "Account created successfully", 
+                    user = new { 
+                        id = userId, 
+                        firstName = request.FirstName, 
+                        lastName = request.LastName, 
+                        email = request.Email, 
+                        accountType = request.AccountType 
+                    }
+                });
             }
         }
 
@@ -182,43 +228,58 @@ namespace FreelanceMusicAPI.Controllers
             {
                 connection.Open();
 
-                var getUserCmd = connection.CreateCommand();
-                getUserCmd.CommandText = @"
-                    SELECT Id, FirstName, LastName, Email, AccountType 
-                    FROM Users 
-                    WHERE Email = @email AND Password = @password";
-                getUserCmd.Parameters.AddWithValue("@email", request.Email);
-                getUserCmd.Parameters.AddWithValue("@password", request.Password);
+                // Try to find user in Student table first
+                var getStudentCmd = connection.CreateCommand();
+                getStudentCmd.CommandText = @"
+                    SELECT student_id, student_name, student_email 
+                    FROM Student 
+                    WHERE student_email = @email AND studentpassword = @password";
+                getStudentCmd.Parameters.AddWithValue("@email", request.Email);
+                getStudentCmd.Parameters.AddWithValue("@password", request.Password.GetHashCode());
 
-                using (var reader = getUserCmd.ExecuteReader())
+                using (var reader = getStudentCmd.ExecuteReader())
                 {
                     if (reader.Read())
                     {
                         var userId = reader.GetInt32(0);
-                        var firstName = reader.GetString(1);
-                        var lastName = reader.GetString(2);
-                        var email = reader.GetString(3);
-                        var accountType = reader.GetString(4);
-
-                        // Create session
-                        var sessionToken = GenerateSessionToken();
-                        var expiresAt = DateTime.UtcNow.AddHours(24);
-
-                        var insertSessionCmd = connection.CreateCommand();
-                        insertSessionCmd.CommandText = @"
-                            INSERT INTO Sessions (UserId, SessionToken, CreatedAt, ExpiresAt)
-                            VALUES (@userId, @sessionToken, @createdAt, @expiresAt)";
-                        insertSessionCmd.Parameters.AddWithValue("@userId", userId);
-                        insertSessionCmd.Parameters.AddWithValue("@sessionToken", sessionToken);
-                        insertSessionCmd.Parameters.AddWithValue("@createdAt", DateTime.UtcNow.ToString("o"));
-                        insertSessionCmd.Parameters.AddWithValue("@expiresAt", expiresAt.ToString("o"));
-                        insertSessionCmd.ExecuteNonQuery();
+                        var fullName = reader.GetString(1);
+                        var email = reader.GetString(2);
+                        var nameParts = fullName.Split(' ');
+                        var firstName = nameParts.Length > 0 ? nameParts[0] : "";
+                        var lastName = nameParts.Length > 1 ? string.Join(" ", nameParts.Skip(1)) : "";
 
                         return Ok(new
                         {
                             success = true,
-                            user = new { id = userId, firstName, lastName, email, accountType },
-                            sessionToken
+                            user = new { id = userId, firstName, lastName, email, accountType = "student" }
+                        });
+                    }
+                }
+
+                // If not found in Student table, try Teacher table
+                    var getTeacherCmd = connection.CreateCommand();
+                getTeacherCmd.CommandText = @"
+                    SELECT teacher_id, teacher_name, teacher_email 
+                    FROM Teacher 
+                    WHERE teacher_email = @email AND teacher_password = @password";
+                getTeacherCmd.Parameters.AddWithValue("@email", request.Email);
+                getTeacherCmd.Parameters.AddWithValue("@password", request.Password.GetHashCode());
+
+                using (var teacherReader = getTeacherCmd.ExecuteReader())
+                {
+                    if (teacherReader.Read())
+                    {
+                        var userId = teacherReader.GetInt32(0);
+                        var fullName = teacherReader.GetString(1);
+                        var email = teacherReader.GetString(2);
+                        var nameParts = fullName.Split(' ');
+                        var firstName = nameParts.Length > 0 ? nameParts[0] : "";
+                        var lastName = nameParts.Length > 1 ? string.Join(" ", nameParts.Skip(1)) : "";
+
+                        return Ok(new
+                        {
+                            success = true,
+                            user = new { id = userId, firstName, lastName, email, accountType = "teacher" }
                         });
                     }
                     else
@@ -229,297 +290,34 @@ namespace FreelanceMusicAPI.Controllers
             }
         }
 
-        [HttpPost("validate-session")]
-        public IActionResult ValidateSession([FromBody] SessionValidationRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.SessionToken))
-            {
-                return Unauthorized(new { success = false, error = "Session token is missing." });
-            }
-
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-
-                var validateSessionCmd = connection.CreateCommand();
-                validateSessionCmd.CommandText = @"
-                    SELECT u.Id, u.FirstName, u.LastName, u.Email, u.AccountType
-                    FROM Users u
-                    JOIN Sessions s ON u.Id = s.UserId
-                    WHERE s.SessionToken = @sessionToken AND s.ExpiresAt > @currentTime";
-                validateSessionCmd.Parameters.AddWithValue("@sessionToken", request.SessionToken);
-                validateSessionCmd.Parameters.AddWithValue("@currentTime", DateTime.UtcNow.ToString("o"));
-
-                using (var reader = validateSessionCmd.ExecuteReader())
-                {
-                    if (reader.Read())
-                    {
-                        var userId = reader.GetInt32(0);
-                        var firstName = reader.GetString(1);
-                        var lastName = reader.GetString(2);
-                        var email = reader.GetString(3);
-                        var accountType = reader.GetString(4);
-
-                        return Ok(new
-                        {
-                            success = true,
-                            user = new { id = userId, firstName, lastName, email, accountType }
-                        });
-                    }
-                    else
-                    {
-                        return Unauthorized(new { success = false, error = "Session expired or invalid." });
-                    }
-                }
-            }
-        }
-
-        [HttpPost("logout")]
-        public IActionResult Logout([FromBody] LogoutRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.SessionToken))
-            {
-                return BadRequest(new { success = false, error = "Session token is missing." });
-            }
-
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-
-                var deleteSessionCmd = connection.CreateCommand();
-                deleteSessionCmd.CommandText = "DELETE FROM Sessions WHERE SessionToken = @sessionToken";
-                deleteSessionCmd.Parameters.AddWithValue("@sessionToken", request.SessionToken);
-                deleteSessionCmd.ExecuteNonQuery();
-
-                return Ok(new { success = true, message = "Logged out successfully." });
-            }
-        }
-
-        // ===========================================
-        // TEACHER AVAILABILITY ENDPOINTS
-        // ===========================================
-
-        [HttpPost("teacher-availability/add")]
-        public IActionResult AddTeacherAvailability([FromBody] AddTeacherAvailabilityRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.SessionToken))
-            {
-                return Unauthorized(new { success = false, error = "Session token is required." });
-            }
-
-            if (string.IsNullOrWhiteSpace(request.Day) || string.IsNullOrWhiteSpace(request.StartTime) || string.IsNullOrWhiteSpace(request.EndTime))
-            {
-                return BadRequest(new { success = false, error = "Day, start time, and end time are required." });
-            }
-
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-
-                var validateSessionCmd = connection.CreateCommand();
-                validateSessionCmd.CommandText = @"
-                    SELECT u.Id, u.AccountType, u.Email
-                    FROM Users u
-                    JOIN Sessions s ON u.Id = s.UserId
-                    WHERE s.SessionToken = @sessionToken AND s.ExpiresAt > @currentTime";
-                validateSessionCmd.Parameters.AddWithValue("@sessionToken", request.SessionToken);
-                validateSessionCmd.Parameters.AddWithValue("@currentTime", DateTime.UtcNow.ToString("o"));
-
-                using (var reader = validateSessionCmd.ExecuteReader())
-                {
-                    if (!reader.Read())
-                    {
-                        return Unauthorized(new { success = false, error = "Invalid or expired session." });
-                    }
-
-                    var userId = reader.GetInt32(0);
-                    var accountType = reader.GetString(1);
-                    var userEmail = reader.GetString(2);
-                    reader.Close();
-
-                    if (accountType != "teacher")
-                    {
-                        return BadRequest(new { success = false, error = "Only teachers can manage availability." });
-                    }
-
-                    // Get teacher ID
-                    var getTeacherCmd = connection.CreateCommand();
-                    getTeacherCmd.CommandText = "SELECT teacher_id FROM Teacher WHERE teacher_email = @email";
-                    getTeacherCmd.Parameters.AddWithValue("@email", userEmail);
-                    var teacherId = getTeacherCmd.ExecuteScalar();
-
-                    if (teacherId == null)
-                    {
-                        return NotFound(new { success = false, error = "Teacher profile not found." });
-                    }
-
-                    // Insert or update availability
-                    var addAvailabilityCmd = connection.CreateCommand();
-                    addAvailabilityCmd.CommandText = @"
-                        INSERT OR REPLACE INTO Teacher_Day_Availability (teacher_id, day, available, start_time, end_time, created_at, updated_at)
-                        VALUES (@teacherId, @day, 1, @startTime, @endTime, @createdAt, @updatedAt)";
-
-                    var now = DateTime.UtcNow.ToString("o");
-                    addAvailabilityCmd.Parameters.AddWithValue("@teacherId", teacherId);
-                    addAvailabilityCmd.Parameters.AddWithValue("@day", request.Day);
-                    addAvailabilityCmd.Parameters.AddWithValue("@startTime", request.StartTime);
-                    addAvailabilityCmd.Parameters.AddWithValue("@endTime", request.EndTime);
-                    addAvailabilityCmd.Parameters.AddWithValue("@createdAt", now);
-                    addAvailabilityCmd.Parameters.AddWithValue("@updatedAt", now);
-
-                    addAvailabilityCmd.ExecuteNonQuery();
-
-                    return Ok(new { success = true, message = "Availability added successfully" });
-                }
-            }
-        }
-
-        [HttpPost("teacher-availability/get")]
-        public IActionResult GetTeacherAvailability([FromBody] GetTeacherAvailabilityRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.SessionToken))
-            {
-                return Unauthorized(new { success = false, error = "Session token is required." });
-            }
-
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-
-                var validateSessionCmd = connection.CreateCommand();
-                validateSessionCmd.CommandText = @"
-                    SELECT u.Id, u.AccountType, u.Email
-                    FROM Users u
-                    JOIN Sessions s ON u.Id = s.UserId
-                    WHERE s.SessionToken = @sessionToken AND s.ExpiresAt > @currentTime";
-                validateSessionCmd.Parameters.AddWithValue("@sessionToken", request.SessionToken);
-                validateSessionCmd.Parameters.AddWithValue("@currentTime", DateTime.UtcNow.ToString("o"));
-
-                using (var reader = validateSessionCmd.ExecuteReader())
-                {
-                    if (!reader.Read())
-                    {
-                        return Unauthorized(new { success = false, error = "Invalid or expired session." });
-                    }
-
-                    var userId = reader.GetInt32(0);
-                    var accountType = reader.GetString(1);
-                    var userEmail = reader.GetString(2);
-                    reader.Close();
-
-                    if (accountType != "teacher")
-                    {
-                        return BadRequest(new { success = false, error = "Only teachers can view availability." });
-                    }
-
-                    // Get teacher ID
-                    var getTeacherCmd = connection.CreateCommand();
-                    getTeacherCmd.CommandText = "SELECT teacher_id FROM Teacher WHERE teacher_email = @email";
-                    getTeacherCmd.Parameters.AddWithValue("@email", userEmail);
-                    var teacherId = getTeacherCmd.ExecuteScalar();
-
-                    if (teacherId == null)
-                    {
-                        return NotFound(new { success = false, error = "Teacher profile not found." });
-                    }
-
-                    // Get availability
-                    var getAvailabilityCmd = connection.CreateCommand();
-                    getAvailabilityCmd.CommandText = @"
-                        SELECT day, start_time, end_time, available
-                        FROM Teacher_Day_Availability
-                        WHERE teacher_id = @teacherId AND available = 1
-                        ORDER BY 
-                            CASE day
-                                WHEN 'Monday' THEN 1
-                                WHEN 'Tuesday' THEN 2
-                                WHEN 'Wednesday' THEN 3
-                                WHEN 'Thursday' THEN 4
-                                WHEN 'Friday' THEN 5
-                                WHEN 'Saturday' THEN 6
-                                WHEN 'Sunday' THEN 7
-                            END";
-
-                    getAvailabilityCmd.Parameters.AddWithValue("@teacherId", teacherId);
-
-                    var availability = new List<object>();
-                    using (var availabilityReader = getAvailabilityCmd.ExecuteReader())
-                    {
-                        while (availabilityReader.Read())
-                        {
-                            availability.Add(new
-                            {
-                                day = availabilityReader.GetString(0),
-                                startTime = availabilityReader.GetString(1),
-                                endTime = availabilityReader.GetString(2),
-                                available = availabilityReader.GetInt32(3) == 1
-                            });
-                        }
-                    }
-
-                    return Ok(new { success = true, availability = availability });
-                }
-            }
-        }
-
         [HttpPost("teacher-profile/create")]
         public IActionResult CreateTeacherProfile([FromBody] CreateTeacherProfileRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.SessionToken))
-            {
-                return Unauthorized(new { success = false, error = "Session token is required." });
-            }
-
             if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Instrument) ||
                 string.IsNullOrWhiteSpace(request.Bio) || string.IsNullOrWhiteSpace(request.Email))
             {
-                return BadRequest(new { success = false, error = "All required fields must be provided." });
+                return BadRequest(new { success = false, error = "Name, instrument, bio, and email are required." });
             }
 
             using (var connection = new SqliteConnection(_connectionString))
             {
                 connection.Open();
-
-                var validateSessionCmd = connection.CreateCommand();
-                validateSessionCmd.CommandText = @"
-                    SELECT u.Id, u.AccountType, u.Email
-                    FROM Users u
-                    JOIN Sessions s ON u.Id = s.UserId
-                    WHERE s.SessionToken = @sessionToken AND s.ExpiresAt > @currentTime";
-                validateSessionCmd.Parameters.AddWithValue("@sessionToken", request.SessionToken);
-                validateSessionCmd.Parameters.AddWithValue("@currentTime", DateTime.UtcNow.ToString("o"));
-
-                using (var reader = validateSessionCmd.ExecuteReader())
-                {
-                    if (!reader.Read())
-                    {
-                        return Unauthorized(new { success = false, error = "Invalid or expired session." });
-                    }
-
-                    var userId = reader.GetInt32(0);
-                    var accountType = reader.GetString(1);
-                    var userEmail = reader.GetString(2);
-                    reader.Close();
-
-                    if (accountType != "teacher")
-                    {
-                        return BadRequest(new { success = false, error = "Only teachers can create teacher profiles." });
-                    }
 
                     // Check if teacher profile already exists
                     var checkProfileCmd = connection.CreateCommand();
                     checkProfileCmd.CommandText = "SELECT COUNT(*) FROM Teacher WHERE teacher_email = @email";
                     checkProfileCmd.Parameters.AddWithValue("@email", request.Email);
+
                     if (Convert.ToInt32(checkProfileCmd.ExecuteScalar()) > 0)
                     {
                         return Conflict(new { success = false, error = "Teacher profile with this email already exists." });
                     }
 
-                    // Create teacher profile in new Teacher table
+                // Create teacher profile in Teacher table
                     var createProfileCmd = connection.CreateCommand();
                     createProfileCmd.CommandText = @"
-                        INSERT INTO Teacher (teacher_name, teacher_email, instrument, class_full, class_limit, bio, charges_per_session, created_at, updated_at)
-                        VALUES (@name, @email, @instrument, @classFull, @classLimit, @bio, @chargesPerSession, @createdAt, @updatedAt);
+                    INSERT INTO Teacher (teacher_name, teacher_email, instrument, class_full, class_limit, current_class, bio, created_at, updated_at)
+                    VALUES (@name, @email, @instrument, @classFull, @classLimit, 0, @bio, @createdAt, @updatedAt);
                         SELECT last_insert_rowid();";
 
                     var now = DateTime.UtcNow.ToString("o");
@@ -529,55 +327,33 @@ namespace FreelanceMusicAPI.Controllers
                     createProfileCmd.Parameters.AddWithValue("@classFull", request.ClassFull ?? 0);
                     createProfileCmd.Parameters.AddWithValue("@classLimit", request.ClassLimit ?? 10);
                     createProfileCmd.Parameters.AddWithValue("@bio", request.Bio);
-                    createProfileCmd.Parameters.AddWithValue("@chargesPerSession", request.ChargesPerSession ?? 0.00m);
                     createProfileCmd.Parameters.AddWithValue("@createdAt", now);
                     createProfileCmd.Parameters.AddWithValue("@updatedAt", now);
 
                     var teacherId = Convert.ToInt32(createProfileCmd.ExecuteScalar());
 
                     return Ok(new { success = true, message = "Teacher profile created successfully", teacherId = teacherId });
-                }
             }
         }
 
         [HttpPost("teacher-profile/get")]
         public IActionResult GetTeacherProfile([FromBody] GetTeacherProfileRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.SessionToken))
+            if (string.IsNullOrWhiteSpace(request.Email))
             {
-                return Unauthorized(new { success = false, error = "Session token is required." });
+                return BadRequest(new { success = false, error = "Email is required." });
             }
 
             using (var connection = new SqliteConnection(_connectionString))
             {
                 connection.Open();
 
-                var validateSessionCmd = connection.CreateCommand();
-                validateSessionCmd.CommandText = @"
-                    SELECT u.Id, u.AccountType, u.Email
-                    FROM Users u
-                    JOIN Sessions s ON u.Id = s.UserId
-                    WHERE s.SessionToken = @sessionToken AND s.ExpiresAt > @currentTime";
-                validateSessionCmd.Parameters.AddWithValue("@sessionToken", request.SessionToken);
-                validateSessionCmd.Parameters.AddWithValue("@currentTime", DateTime.UtcNow.ToString("o"));
-
-                using (var reader = validateSessionCmd.ExecuteReader())
-                {
-                    if (!reader.Read())
-                    {
-                        return Unauthorized(new { success = false, error = "Invalid or expired session." });
-                    }
-
-                    var userId = reader.GetInt32(0);
-                    var userEmail = reader.GetString(2);
-                    reader.Close();
-
                     var getProfileCmd = connection.CreateCommand();
                     getProfileCmd.CommandText = @"
-                        SELECT teacher_id, teacher_name, teacher_email, instrument, class_full, class_limit, bio, charges_per_session, created_at, updated_at
+                    SELECT teacher_id, teacher_name, teacher_email, instrument, class_full, class_limit, current_class, bio, created_at, updated_at
                         FROM Teacher
                         WHERE teacher_email = @email";
-                    getProfileCmd.Parameters.AddWithValue("@email", userEmail);
+                getProfileCmd.Parameters.AddWithValue("@email", request.Email);
 
                     using (var profileReader = getProfileCmd.ExecuteReader())
                     {
@@ -591,8 +367,8 @@ namespace FreelanceMusicAPI.Controllers
                                 instrument = profileReader.GetString(3),
                                 classFull = profileReader.GetInt32(4),
                                 classLimit = profileReader.GetInt32(5),
-                                bio = profileReader.GetString(6),
-                                chargesPerSession = profileReader.GetDecimal(7),
+                            currentClass = profileReader.GetInt32(6),
+                            bio = profileReader.GetString(7),
                                 createdAt = profileReader.GetString(8),
                                 updatedAt = profileReader.GetString(9)
                             };
@@ -602,7 +378,6 @@ namespace FreelanceMusicAPI.Controllers
                         else
                         {
                             return NotFound(new { success = false, error = "Teacher profile not found." });
-                        }
                     }
                 }
             }
@@ -611,57 +386,33 @@ namespace FreelanceMusicAPI.Controllers
         [HttpPost("teacher-profile/update")]
         public IActionResult UpdateTeacherProfile([FromBody] UpdateTeacherProfileRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.SessionToken))
-            {
-                return Unauthorized(new { success = false, error = "Session token is required." });
-            }
-
             if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Instrument) ||
                 string.IsNullOrWhiteSpace(request.Bio) || string.IsNullOrWhiteSpace(request.Email))
             {
-                return BadRequest(new { success = false, error = "All required fields must be provided." });
+                return BadRequest(new { success = false, error = "Name, instrument, bio, and email are required." });
             }
 
             using (var connection = new SqliteConnection(_connectionString))
             {
                 connection.Open();
 
-                var validateSessionCmd = connection.CreateCommand();
-                validateSessionCmd.CommandText = @"
-                    SELECT u.Id, u.AccountType, u.Email
-                    FROM Users u
-                    JOIN Sessions s ON u.Id = s.UserId
-                    WHERE s.SessionToken = @sessionToken AND s.ExpiresAt > @currentTime";
-                validateSessionCmd.Parameters.AddWithValue("@sessionToken", request.SessionToken);
-                validateSessionCmd.Parameters.AddWithValue("@currentTime", DateTime.UtcNow.ToString("o"));
-
-                using (var reader = validateSessionCmd.ExecuteReader())
-                {
-                    if (!reader.Read())
-                    {
-                        return Unauthorized(new { success = false, error = "Invalid or expired session." });
-                    }
-
-                    var userId = reader.GetInt32(0);
-                    var userEmail = reader.GetString(2);
-                    reader.Close();
-
                     // Check if teacher profile exists
                     var checkProfileCmd = connection.CreateCommand();
                     checkProfileCmd.CommandText = "SELECT COUNT(*) FROM Teacher WHERE teacher_email = @email";
-                    checkProfileCmd.Parameters.AddWithValue("@email", userEmail);
+                checkProfileCmd.Parameters.AddWithValue("@email", request.Email);
+
                     if (Convert.ToInt32(checkProfileCmd.ExecuteScalar()) == 0)
                     {
                         return NotFound(new { success = false, error = "Teacher profile not found. Please create a profile first." });
                     }
 
-                    // Update teacher profile in new Teacher table
+                // Update teacher profile in Teacher table
                     var updateProfileCmd = connection.CreateCommand();
                     updateProfileCmd.CommandText = @"
                         UPDATE Teacher 
                         SET teacher_name = @name, teacher_email = @email, instrument = @instrument, 
                             class_full = @classFull, class_limit = @classLimit, bio = @bio, 
-                            charges_per_session = @chargesPerSession, updated_at = @updatedAt
+                        updated_at = @updatedAt
                         WHERE teacher_email = @originalEmail";
 
                     var now = DateTime.UtcNow.ToString("o");
@@ -671,56 +422,152 @@ namespace FreelanceMusicAPI.Controllers
                     updateProfileCmd.Parameters.AddWithValue("@classFull", request.ClassFull ?? 0);
                     updateProfileCmd.Parameters.AddWithValue("@classLimit", request.ClassLimit ?? 10);
                     updateProfileCmd.Parameters.AddWithValue("@bio", request.Bio);
-                    updateProfileCmd.Parameters.AddWithValue("@chargesPerSession", request.ChargesPerSession ?? 0.00m);
                     updateProfileCmd.Parameters.AddWithValue("@updatedAt", now);
-                    updateProfileCmd.Parameters.AddWithValue("@originalEmail", userEmail);
+                updateProfileCmd.Parameters.AddWithValue("@originalEmail", request.Email);
 
                     updateProfileCmd.ExecuteNonQuery();
 
                     return Ok(new { success = true, message = "Teacher profile updated successfully" });
                 }
             }
-        }
 
-        // ===========================================
-        // TEACHER PROFILE ENDPOINTS
-        // ===========================================
-
-        [HttpPost("teacher-availability/set")]
-        public IActionResult SetTeacherAvailability([FromBody] SetTeacherAvailabilityRequest request)
+        [HttpPost("teacher-availability/add")]
+        public IActionResult AddTeacherAvailability([FromBody] AddTeacherAvailabilityRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.SessionToken))
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Day) || 
+                string.IsNullOrWhiteSpace(request.StartTime) || string.IsNullOrWhiteSpace(request.EndTime))
             {
-                return Unauthorized(new { success = false, error = "Session token is required." });
+                return BadRequest(new { success = false, error = "Email, day, start time, and end time are required." });
             }
 
             using (var connection = new SqliteConnection(_connectionString))
             {
                 connection.Open();
 
-                var validateSessionCmd = connection.CreateCommand();
-                validateSessionCmd.CommandText = @"
-                    SELECT u.Id, u.AccountType
-                    FROM Users u
-                    JOIN Sessions s ON u.Id = s.UserId
-                    WHERE s.SessionToken = @sessionToken AND s.ExpiresAt > @currentTime";
-                validateSessionCmd.Parameters.AddWithValue("@sessionToken", request.SessionToken);
-                validateSessionCmd.Parameters.AddWithValue("@currentTime", DateTime.UtcNow.ToString("o"));
+                // Get teacher ID from email
+                var getTeacherCmd = connection.CreateCommand();
+                getTeacherCmd.CommandText = "SELECT teacher_id FROM Teacher WHERE teacher_email = @email";
+                getTeacherCmd.Parameters.AddWithValue("@email", request.Email);
+                var teacherId = getTeacherCmd.ExecuteScalar();
 
-                using (var reader = validateSessionCmd.ExecuteReader())
+                if (teacherId == null)
                 {
-                    if (!reader.Read())
-                    {
-                        return Unauthorized(new { success = false, error = "Invalid or expired session." });
-                    }
+                    return NotFound(new { success = false, error = "Teacher not found." });
+                }
 
-                    var userId = reader.GetInt32(0);
-                    reader.Close();
+                // Insert or update availability
+                var addAvailabilityCmd = connection.CreateCommand();
+                addAvailabilityCmd.CommandText = @"
+                    INSERT OR REPLACE INTO Teacher_Day_Availability (teacher_id, day, available, start_time, end_time, created_at, updated_at)
+                    VALUES (@teacherId, @day, 1, @startTime, @endTime, @createdAt, @updatedAt)";
+
+                var now = DateTime.UtcNow.ToString("o");
+                addAvailabilityCmd.Parameters.AddWithValue("@teacherId", teacherId);
+                addAvailabilityCmd.Parameters.AddWithValue("@day", request.Day);
+                addAvailabilityCmd.Parameters.AddWithValue("@startTime", request.StartTime);
+                addAvailabilityCmd.Parameters.AddWithValue("@endTime", request.EndTime);
+                addAvailabilityCmd.Parameters.AddWithValue("@createdAt", now);
+                addAvailabilityCmd.Parameters.AddWithValue("@updatedAt", now);
+
+                addAvailabilityCmd.ExecuteNonQuery();
+
+                return Ok(new { success = true, message = "Availability added successfully" });
+            }
+        }
+
+        [HttpPost("teacher-availability/get")]
+        public IActionResult GetTeacherAvailability([FromBody] GetTeacherAvailabilityRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                return BadRequest(new { success = false, error = "Email is required." });
+            }
+
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+
+                // Get teacher ID from email
+                var getTeacherCmd = connection.CreateCommand();
+                getTeacherCmd.CommandText = "SELECT teacher_id FROM Teacher WHERE teacher_email = @email";
+                getTeacherCmd.Parameters.AddWithValue("@email", request.Email);
+                var teacherId = getTeacherCmd.ExecuteScalar();
+
+                if (teacherId == null)
+                {
+                    return NotFound(new { success = false, error = "Teacher not found." });
+                }
+
+                // Get availability
+                var getAvailabilityCmd = connection.CreateCommand();
+                getAvailabilityCmd.CommandText = @"
+                    SELECT day, start_time, end_time, available
+                    FROM Teacher_Day_Availability
+                    WHERE teacher_id = @teacherId AND available = 1
+                    ORDER BY 
+                        CASE day
+                            WHEN 'Monday' THEN 1
+                            WHEN 'Tuesday' THEN 2
+                            WHEN 'Wednesday' THEN 3
+                            WHEN 'Thursday' THEN 4
+                            WHEN 'Friday' THEN 5
+                            WHEN 'Saturday' THEN 6
+                            WHEN 'Sunday' THEN 7
+                        END";
+
+                getAvailabilityCmd.Parameters.AddWithValue("@teacherId", teacherId);
+
+                var availability = new List<object>();
+                using (var availabilityReader = getAvailabilityCmd.ExecuteReader())
+                {
+                    while (availabilityReader.Read())
+                    {
+                        availability.Add(new
+                        {
+                            day = availabilityReader.GetString(0),
+                            startTime = availabilityReader.GetString(1),
+                            endTime = availabilityReader.GetString(2),
+                            available = availabilityReader.GetInt32(3) == 1
+                        });
+                    }
+                }
+
+                return Ok(new { success = true, availability = availability });
+            }
+        }
+
+        [HttpPost("teacher-availability/set")]
+        public IActionResult SetTeacherAvailability([FromBody] SetTeacherAvailabilityRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                return BadRequest(new { success = false, error = "Email is required." });
+            }
+
+            if (request.Availability == null || !request.Availability.Any())
+            {
+                return BadRequest(new { success = false, error = "Availability data is required." });
+            }
+
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+
+                // Get teacher ID from email
+                var getTeacherCmd = connection.CreateCommand();
+                getTeacherCmd.CommandText = "SELECT teacher_id FROM Teacher WHERE teacher_email = @email";
+                getTeacherCmd.Parameters.AddWithValue("@email", request.Email);
+                var teacherId = getTeacherCmd.ExecuteScalar();
+
+                if (teacherId == null)
+                {
+                    return NotFound(new { success = false, error = "Teacher not found." });
+                }
 
                     // Clear existing availability
                     var clearAvailabilityCmd = connection.CreateCommand();
-                    clearAvailabilityCmd.CommandText = "DELETE FROM TeacherAvailability WHERE TeacherId = @teacherId";
-                    clearAvailabilityCmd.Parameters.AddWithValue("@teacherId", userId);
+                clearAvailabilityCmd.CommandText = "DELETE FROM Teacher_Day_Availability WHERE teacher_id = @teacherId";
+                clearAvailabilityCmd.Parameters.AddWithValue("@teacherId", teacherId);
                     clearAvailabilityCmd.ExecuteNonQuery();
 
                     // Insert new availability
@@ -729,56 +576,28 @@ namespace FreelanceMusicAPI.Controllers
                     {
                         var insertAvailabilityCmd = connection.CreateCommand();
                         insertAvailabilityCmd.CommandText = @"
-                            INSERT INTO TeacherAvailability (TeacherId, DayOfWeek, StartTime, EndTime, IsAvailable, CreatedAt, UpdatedAt)
-                            VALUES (@teacherId, @dayOfWeek, @startTime, @endTime, @isAvailable, @createdAt, @updatedAt)";
-                        insertAvailabilityCmd.Parameters.AddWithValue("@teacherId", userId);
-                        insertAvailabilityCmd.Parameters.AddWithValue("@dayOfWeek", slot.DayOfWeek);
+                        INSERT INTO Teacher_Day_Availability (teacher_id, day, start_time, end_time, available, created_at, updated_at)
+                        VALUES (@teacherId, @day, @startTime, @endTime, @isAvailable, @createdAt, @updatedAt)";
+                    insertAvailabilityCmd.Parameters.AddWithValue("@teacherId", teacherId);
+                    insertAvailabilityCmd.Parameters.AddWithValue("@day", slot.DayOfWeek);
                         insertAvailabilityCmd.Parameters.AddWithValue("@startTime", slot.StartTime);
                         insertAvailabilityCmd.Parameters.AddWithValue("@endTime", slot.EndTime);
-                        insertAvailabilityCmd.Parameters.AddWithValue("@isAvailable", slot.IsAvailable);
+                    insertAvailabilityCmd.Parameters.AddWithValue("@isAvailable", slot.IsAvailable ? 1 : 0);
                         insertAvailabilityCmd.Parameters.AddWithValue("@createdAt", now);
                         insertAvailabilityCmd.Parameters.AddWithValue("@updatedAt", now);
                         insertAvailabilityCmd.ExecuteNonQuery();
                     }
 
                     return Ok(new { success = true, message = "Availability updated successfully" });
-                }
             }
         }
 
-        // ===========================================
-        // STUDENT-TEACHER INTERCONNECTION ENDPOINTS
-        // ===========================================
-
         [HttpPost("teachers/list")]
-        public IActionResult GetAvailableTeachers([FromBody] GetAvailableTeachersRequest request)
+        public IActionResult GetTeachersList([FromBody] GetTeachersListRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.SessionToken))
-            {
-                return Unauthorized(new { success = false, error = "Session token is required." });
-            }
-
             using (var connection = new SqliteConnection(_connectionString))
             {
                 connection.Open();
-
-                var validateSessionCmd = connection.CreateCommand();
-                validateSessionCmd.CommandText = @"
-                    SELECT u.Id, u.AccountType
-                    FROM Users u
-                    JOIN Sessions s ON u.Id = s.UserId
-                    WHERE s.SessionToken = @sessionToken AND s.ExpiresAt > @currentTime";
-                validateSessionCmd.Parameters.AddWithValue("@sessionToken", request.SessionToken);
-                validateSessionCmd.Parameters.AddWithValue("@currentTime", DateTime.UtcNow.ToString("o"));
-
-                using (var reader = validateSessionCmd.ExecuteReader())
-                {
-                    if (!reader.Read())
-                    {
-                        return Unauthorized(new { success = false, error = "Invalid or expired session." });
-                    }
-
-                    reader.Close();
 
                     var getTeachersCmd = connection.CreateCommand();
                     var whereClause = "";
@@ -786,18 +605,22 @@ namespace FreelanceMusicAPI.Controllers
 
                     if (!string.IsNullOrWhiteSpace(request.Instrument))
                     {
-                        whereClause = "WHERE tp.Instrument LIKE @instrument";
+                    whereClause = "WHERE t.instrument LIKE @instrument";
                         parameters.Add(new SqliteParameter("@instrument", $"%{request.Instrument}%"));
                     }
 
                     getTeachersCmd.CommandText = $@"
-                        SELECT tp.UserId, tp.Name, tp.Instrument, tp.Bio, tp.ContactInfo,
-                               COUNT(ta.Id) as AvailabilityCount
-                        FROM TeacherProfiles tp
-                        LEFT JOIN TeacherAvailability ta ON tp.UserId = ta.TeacherId AND ta.IsAvailable = 1
+                    SELECT t.teacher_id, t.teacher_name, t.teacher_email, t.instrument, t.bio,
+                           t.class_limit, t.current_class, t.class_full,
+                           COUNT(tda.day) as AvailabilityCount
+                    FROM Teacher t
+                    LEFT JOIN Teacher_Day_Availability tda ON t.teacher_id = tda.teacher_id 
+                        AND tda.available = 1 
+                        AND t.class_full = 0
                         {whereClause}
-                        GROUP BY tp.UserId, tp.Name, tp.Instrument, tp.Bio, tp.ContactInfo
-                        ORDER BY tp.Name";
+                    GROUP BY t.teacher_id, t.teacher_name, t.teacher_email, t.instrument, t.bio, 
+                             t.class_limit, t.current_class, t.class_full
+                    ORDER BY t.teacher_name";
 
                     foreach (var param in parameters)
                     {
@@ -813,57 +636,41 @@ namespace FreelanceMusicAPI.Controllers
                             {
                                 userId = teachersReader.GetInt32(0),
                                 name = teachersReader.GetString(1),
-                                instrument = teachersReader.GetString(2),
-                                bio = teachersReader.GetString(3),
-                                contactInfo = teachersReader.GetString(4),
-                                availabilityCount = teachersReader.GetInt32(5)
+                            email = teachersReader.GetString(2),
+                            instrument = teachersReader.GetString(3),
+                            bio = teachersReader.GetString(4),
+                            classLimit = teachersReader.GetInt32(5),
+                            currentClass = teachersReader.GetInt32(6),
+                            classFull = teachersReader.GetInt32(7),
+                            availabilityCount = teachersReader.GetInt32(8),
+                            isAvailable = teachersReader.GetInt32(7) == 0 // class_full = 0 means available
                             });
                         }
                     }
 
                     return Ok(new { success = true, teachers = teachers });
-                }
             }
         }
 
         [HttpPost("teacher-schedule/get")]
         public IActionResult GetTeacherSchedule([FromBody] GetTeacherScheduleRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.SessionToken))
+            if (string.IsNullOrWhiteSpace(request.TeacherId))
             {
-                return Unauthorized(new { success = false, error = "Session token is required." });
+                return BadRequest(new { success = false, error = "Teacher ID is required." });
             }
 
             using (var connection = new SqliteConnection(_connectionString))
             {
                 connection.Open();
 
-                var validateSessionCmd = connection.CreateCommand();
-                validateSessionCmd.CommandText = @"
-                    SELECT u.Id, u.AccountType
-                    FROM Users u
-                    JOIN Sessions s ON u.Id = s.UserId
-                    WHERE s.SessionToken = @sessionToken AND s.ExpiresAt > @currentTime";
-                validateSessionCmd.Parameters.AddWithValue("@sessionToken", request.SessionToken);
-                validateSessionCmd.Parameters.AddWithValue("@currentTime", DateTime.UtcNow.ToString("o"));
-
-                using (var reader = validateSessionCmd.ExecuteReader())
-                {
-                    if (!reader.Read())
-                    {
-                        return Unauthorized(new { success = false, error = "Invalid or expired session." });
-                    }
-
-                    reader.Close();
-
-                    // Get teacher availability
-                    var getAvailabilityCmd = connection.CreateCommand();
-                    getAvailabilityCmd.CommandText = @"
-                        SELECT DayOfWeek, StartTime, EndTime
-                        FROM TeacherAvailability
-                        WHERE TeacherId = @teacherId AND IsAvailable = 1
+                var getScheduleCmd = connection.CreateCommand();
+                getScheduleCmd.CommandText = @"
+                    SELECT day, start_time, end_time, available
+                    FROM Teacher_Day_Availability
+                    WHERE teacher_id = @teacherId AND available = 1
                         ORDER BY 
-                            CASE DayOfWeek 
+                        CASE day
                                 WHEN 'Monday' THEN 1
                                 WHEN 'Tuesday' THEN 2
                                 WHEN 'Wednesday' THEN 3
@@ -872,217 +679,174 @@ namespace FreelanceMusicAPI.Controllers
                                 WHEN 'Saturday' THEN 6
                                 WHEN 'Sunday' THEN 7
                             END";
-                    getAvailabilityCmd.Parameters.AddWithValue("@teacherId", request.TeacherId);
 
-                    var availability = new List<object>();
-                    using (var availabilityReader = getAvailabilityCmd.ExecuteReader())
+                getScheduleCmd.Parameters.AddWithValue("@teacherId", request.TeacherId);
+
+                var schedule = new List<object>();
+                using (var scheduleReader = getScheduleCmd.ExecuteReader())
+                {
+                    while (scheduleReader.Read())
                     {
-                        while (availabilityReader.Read())
+                        schedule.Add(new
                         {
-                            availability.Add(new
-                            {
-                                dayOfWeek = availabilityReader.GetString(0),
-                                startTime = availabilityReader.GetString(1),
-                                endTime = availabilityReader.GetString(2)
+                            day = scheduleReader.GetString(0),
+                            startTime = scheduleReader.GetString(1),
+                            endTime = scheduleReader.GetString(2),
+                            available = scheduleReader.GetInt32(3) == 1
                             });
                         }
                     }
 
-                    // Get existing lessons for this teacher
-                    var getLessonsCmd = connection.CreateCommand();
-                    getLessonsCmd.CommandText = @"
-                        SELECT LessonDate, LessonTime, StudentName, Instrument, LessonType
-                        FROM Lessons
-                        WHERE TeacherId = @teacherId AND Status = 'scheduled'
-                        ORDER BY LessonDate, LessonTime";
-                    getLessonsCmd.Parameters.AddWithValue("@teacherId", request.TeacherId);
-
-                    var lessons = new List<object>();
-                    using (var lessonsReader = getLessonsCmd.ExecuteReader())
-                    {
-                        while (lessonsReader.Read())
-                        {
-                            lessons.Add(new
-                            {
-                                lessonDate = lessonsReader.GetString(0),
-                                lessonTime = lessonsReader.GetString(1),
-                                studentName = lessonsReader.GetString(2),
-                                instrument = lessonsReader.GetString(3),
-                                lessonType = lessonsReader.GetString(4)
-                            });
-                        }
-                    }
-
-                    return Ok(new { success = true, availability = availability, lessons = lessons });
-                }
+                return Ok(new { success = true, schedule = schedule });
             }
         }
 
-        // ===========================================
-        // LESSON MANAGEMENT ENDPOINTS
-        // ===========================================
-
-        [HttpPost("lessons/get")]
-        public IActionResult GetLessons([FromBody] GetLessonsRequest request)
+        [HttpPost("student-studying/add")]
+        public IActionResult AddStudentStudying([FromBody] AddStudentStudyingRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.SessionToken))
+            if (string.IsNullOrWhiteSpace(request.StudentEmail) || string.IsNullOrWhiteSpace(request.TeacherEmail) ||
+                string.IsNullOrWhiteSpace(request.Day))
             {
-                return Unauthorized(new { success = false, error = "Session token is required." });
+                return BadRequest(new { success = false, error = "Student email, teacher email, and day are required." });
             }
 
             using (var connection = new SqliteConnection(_connectionString))
             {
                 connection.Open();
 
-                var validateSessionCmd = connection.CreateCommand();
-                validateSessionCmd.CommandText = @"
-                    SELECT u.Id, u.AccountType
-                    FROM Users u
-                    JOIN Sessions s ON u.Id = s.UserId
-                    WHERE s.SessionToken = @sessionToken AND s.ExpiresAt > @currentTime";
-                validateSessionCmd.Parameters.AddWithValue("@sessionToken", request.SessionToken);
-                validateSessionCmd.Parameters.AddWithValue("@currentTime", DateTime.UtcNow.ToString("o"));
+                // Get student ID
+                var getStudentCmd = connection.CreateCommand();
+                getStudentCmd.CommandText = "SELECT student_id FROM Student WHERE student_email = @email";
+                getStudentCmd.Parameters.AddWithValue("@email", request.StudentEmail);
+                var studentId = getStudentCmd.ExecuteScalar();
 
-                using (var reader = validateSessionCmd.ExecuteReader())
+                if (studentId == null)
                 {
-                    if (!reader.Read())
-                    {
-                        return Unauthorized(new { success = false, error = "Invalid or expired session." });
-                    }
+                    return NotFound(new { success = false, error = "Student not found." });
+                }
 
-                    var userId = reader.GetInt32(0);
-                    var accountType = reader.GetString(1);
-                    reader.Close();
+                // Get teacher ID
+                var getTeacherCmd = connection.CreateCommand();
+                getTeacherCmd.CommandText = "SELECT teacher_id FROM Teacher WHERE teacher_email = @email";
+                getTeacherCmd.Parameters.AddWithValue("@email", request.TeacherEmail);
+                var teacherId = getTeacherCmd.ExecuteScalar();
 
-                    var getLessonsCmd = connection.CreateCommand();
-                    if (accountType.ToLower() == "teacher")
-                    {
-                        getLessonsCmd.CommandText = @"
-                            SELECT Id, StudentName, Instrument, LessonDate, LessonTime, LessonType, 
-                                   LessonMaterial, MaterialFileName, MaterialFileSize, MaterialMimeType, Status
-                            FROM Lessons
-                            WHERE TeacherId = @userId
-                            ORDER BY LessonDate DESC, LessonTime DESC";
-                    }
-                    else
-                    {
-                        getLessonsCmd.CommandText = @"
-                            SELECT l.Id, l.StudentName, l.Instrument, l.LessonDate, l.LessonTime, l.LessonType, 
-                                   l.LessonMaterial, l.MaterialFileName, l.MaterialFileSize, l.MaterialMimeType, l.Status,
-                                   tp.Name as TeacherName
-                            FROM Lessons l
-                            JOIN TeacherProfiles tp ON l.TeacherId = tp.UserId
-                            WHERE l.StudentId = @userId
-                            ORDER BY l.LessonDate DESC, l.LessonTime DESC";
-                    }
-                    getLessonsCmd.Parameters.AddWithValue("@userId", userId);
+                if (teacherId == null)
+                {
+                    return NotFound(new { success = false, error = "Teacher not found." });
+                }
 
-                    var lessons = new List<object>();
-                    using (var lessonsReader = getLessonsCmd.ExecuteReader())
+                // Check if teacher has reached class limit
+                var checkClassLimitCmd = connection.CreateCommand();
+                checkClassLimitCmd.CommandText = @"
+                    SELECT class_limit, current_class FROM Teacher WHERE teacher_id = @teacherId";
+                checkClassLimitCmd.Parameters.AddWithValue("@teacherId", teacherId);
+
+                using (var limitReader = checkClassLimitCmd.ExecuteReader())
+                {
+                    if (limitReader.Read())
                     {
-                        while (lessonsReader.Read())
+                        var classLimit = limitReader.GetInt32(0);
+                        var currentClass = limitReader.GetInt32(1);
+                        
+                        if (currentClass >= classLimit)
                         {
-                            var lesson = new
-                            {
-                                id = lessonsReader.GetInt32(0),
-                                studentName = lessonsReader.GetString(1),
-                                instrument = lessonsReader.GetString(2),
-                                lessonDate = lessonsReader.GetString(3),
-                                lessonTime = lessonsReader.GetString(4),
-                                lessonType = lessonsReader.GetString(5),
-                                lessonMaterial = lessonsReader.IsDBNull(6) ? null : lessonsReader.GetString(6),
-                                materialFileName = lessonsReader.IsDBNull(7) ? null : lessonsReader.GetString(7),
-                                materialFileSize = lessonsReader.IsDBNull(8) ? null : (int?)lessonsReader.GetInt32(8),
-                                materialMimeType = lessonsReader.IsDBNull(9) ? null : lessonsReader.GetString(9),
-                                status = lessonsReader.GetString(10),
-                                teacherName = accountType.ToLower() == "student" && !lessonsReader.IsDBNull(11) ? lessonsReader.GetString(11) : null
-                            };
-
-                            lessons.Add(lesson);
+                            return BadRequest(new { success = false, error = "This teacher has reached their class limit and is no longer available." });
                         }
                     }
-
-                    return Ok(new { success = true, lessons = lessons });
                 }
+
+                // Insert student studying relationship
+                var insertStudyingCmd = connection.CreateCommand();
+                insertStudyingCmd.CommandText = @"
+                    INSERT OR REPLACE INTO Student_Studying (student_id, teacher_id, day, created_at)
+                    VALUES (@studentId, @teacherId, @day, @createdAt)";
+
+                var now = DateTime.UtcNow.ToString("o");
+                insertStudyingCmd.Parameters.AddWithValue("@studentId", studentId);
+                insertStudyingCmd.Parameters.AddWithValue("@teacherId", teacherId);
+                insertStudyingCmd.Parameters.AddWithValue("@day", request.Day);
+                insertStudyingCmd.Parameters.AddWithValue("@createdAt", now);
+
+                insertStudyingCmd.ExecuteNonQuery();
+
+                // Increment teacher's current class count
+                var incrementClassCmd = connection.CreateCommand();
+                incrementClassCmd.CommandText = @"
+                    UPDATE Teacher 
+                    SET current_class = current_class + 1, 
+                        class_full = CASE WHEN (current_class + 1) >= class_limit THEN 1 ELSE 0 END,
+                        updated_at = @updatedAt
+                    WHERE teacher_id = @teacherId";
+                incrementClassCmd.Parameters.AddWithValue("@teacherId", teacherId);
+                incrementClassCmd.Parameters.AddWithValue("@updatedAt", now);
+                incrementClassCmd.ExecuteNonQuery();
+
+                return Ok(new { success = true, message = "Student enrolled successfully" });
             }
         }
 
-        [HttpPost("lessons/book")]
-        public IActionResult BookLesson([FromBody] BookLessonRequest request)
+        [HttpPost("student-studying/get")]
+        public IActionResult GetStudentStudying([FromBody] GetStudentStudyingRequest request)
         {
-            if (string.IsNullOrWhiteSpace(request.SessionToken))
+            if (string.IsNullOrWhiteSpace(request.StudentEmail))
             {
-                return Unauthorized(new { success = false, error = "Session token is required." });
+                return BadRequest(new { success = false, error = "Student email is required." });
             }
 
             using (var connection = new SqliteConnection(_connectionString))
             {
                 connection.Open();
 
-                var validateSessionCmd = connection.CreateCommand();
-                validateSessionCmd.CommandText = @"
-                    SELECT u.Id, u.AccountType, u.FirstName, u.LastName
-                    FROM Users u
-                    JOIN Sessions s ON u.Id = s.UserId
-                    WHERE s.SessionToken = @sessionToken AND s.ExpiresAt > @currentTime";
-                validateSessionCmd.Parameters.AddWithValue("@sessionToken", request.SessionToken);
-                validateSessionCmd.Parameters.AddWithValue("@currentTime", DateTime.UtcNow.ToString("o"));
+                // Get student ID
+                var getStudentCmd = connection.CreateCommand();
+                getStudentCmd.CommandText = "SELECT student_id FROM Student WHERE student_email = @email";
+                getStudentCmd.Parameters.AddWithValue("@email", request.StudentEmail);
+                var studentId = getStudentCmd.ExecuteScalar();
 
-                using (var reader = validateSessionCmd.ExecuteReader())
+                if (studentId == null)
                 {
-                    if (!reader.Read())
-                    {
-                        return Unauthorized(new { success = false, error = "Invalid or expired session." });
-                    }
-
-                    var userId = reader.GetInt32(0);
-                    var accountType = reader.GetString(1);
-                    var firstName = reader.GetString(2);
-                    var lastName = reader.GetString(3);
-                    reader.Close();
-
-                    // Check if there's a conflict
-                    var checkConflictCmd = connection.CreateCommand();
-                    checkConflictCmd.CommandText = @"
-                        SELECT COUNT(*) FROM Lessons 
-                        WHERE TeacherId = @teacherId AND LessonDate = @lessonDate AND LessonTime = @lessonTime AND Status = 'scheduled'";
-                    checkConflictCmd.Parameters.AddWithValue("@teacherId", request.TeacherId);
-                    checkConflictCmd.Parameters.AddWithValue("@lessonDate", request.LessonDate);
-                    checkConflictCmd.Parameters.AddWithValue("@lessonTime", request.LessonTime);
-
-                    if (Convert.ToInt32(checkConflictCmd.ExecuteScalar()) > 0)
-                    {
-                        return BadRequest(new { success = false, error = "This time slot is already booked." });
-                    }
-
-                    // Book the lesson
-                    var bookLessonCmd = connection.CreateCommand();
-                    bookLessonCmd.CommandText = @"
-                        INSERT INTO Lessons (TeacherId, StudentId, StudentName, Instrument, LessonDate, LessonTime, LessonType, Status, CreatedAt, UpdatedAt)
-                        VALUES (@teacherId, @studentId, @studentName, @instrument, @lessonDate, @lessonTime, @lessonType, 'scheduled', @createdAt, @updatedAt);
-                        SELECT last_insert_rowid();";
-
-                    var now = DateTime.UtcNow.ToString("o");
-                    bookLessonCmd.Parameters.AddWithValue("@teacherId", request.TeacherId);
-                    bookLessonCmd.Parameters.AddWithValue("@studentId", userId);
-                    bookLessonCmd.Parameters.AddWithValue("@studentName", $"{firstName} {lastName}");
-                    bookLessonCmd.Parameters.AddWithValue("@instrument", request.Instrument);
-                    bookLessonCmd.Parameters.AddWithValue("@lessonDate", request.LessonDate);
-                    bookLessonCmd.Parameters.AddWithValue("@lessonTime", request.LessonTime);
-                    bookLessonCmd.Parameters.AddWithValue("@lessonType", request.LessonType);
-                    bookLessonCmd.Parameters.AddWithValue("@createdAt", now);
-                    bookLessonCmd.Parameters.AddWithValue("@updatedAt", now);
-
-                    var lessonId = Convert.ToInt32(bookLessonCmd.ExecuteScalar());
-
-                    return Ok(new { success = true, message = "Lesson booked successfully", lessonId = lessonId });
+                    return NotFound(new { success = false, error = "Student not found." });
                 }
-            }
-        }
 
-        private string GenerateSessionToken()
-        {
-            return Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+                // Get student studying relationships
+                var getStudyingCmd = connection.CreateCommand();
+                getStudyingCmd.CommandText = @"
+                    SELECT ss.day, t.teacher_name, t.teacher_email, t.instrument, t.bio
+                    FROM Student_Studying ss
+                    JOIN Teacher t ON ss.teacher_id = t.teacher_id
+                    WHERE ss.student_id = @studentId
+                    ORDER BY 
+                        CASE ss.day
+                            WHEN 'Monday' THEN 1
+                            WHEN 'Tuesday' THEN 2
+                            WHEN 'Wednesday' THEN 3
+                            WHEN 'Thursday' THEN 4
+                            WHEN 'Friday' THEN 5
+                            WHEN 'Saturday' THEN 6
+                            WHEN 'Sunday' THEN 7
+                        END";
+
+                getStudyingCmd.Parameters.AddWithValue("@studentId", studentId);
+
+                var studying = new List<object>();
+                using (var studyingReader = getStudyingCmd.ExecuteReader())
+                {
+                    while (studyingReader.Read())
+                    {
+                        studying.Add(new
+                        {
+                            day = studyingReader.GetString(0),
+                            teacherName = studyingReader.GetString(1),
+                            teacherEmail = studyingReader.GetString(2),
+                            instrument = studyingReader.GetString(3),
+                            bio = studyingReader.GetString(4)
+                        });
+                    }
+                }
+
+                return Ok(new { success = true, studying = studying });
+            }
         }
     }
 
@@ -1102,48 +866,34 @@ namespace FreelanceMusicAPI.Controllers
         public string? Password { get; set; }
     }
 
-    public class SessionValidationRequest
-    {
-        public string? SessionToken { get; set; }
-    }
-
-    public class LogoutRequest
-    {
-        public string? SessionToken { get; set; }
-    }
-
     public class CreateTeacherProfileRequest
     {
-        public string? SessionToken { get; set; }
         public string? Name { get; set; }
         public string? Instrument { get; set; }
         public string? Bio { get; set; }
         public string? Email { get; set; }
         public int? ClassFull { get; set; }
         public int? ClassLimit { get; set; }
-        public decimal? ChargesPerSession { get; set; }
     }
 
     public class GetTeacherProfileRequest
     {
-        public string? SessionToken { get; set; }
+        public string? Email { get; set; }
     }
 
     public class UpdateTeacherProfileRequest
     {
-        public string? SessionToken { get; set; }
         public string? Name { get; set; }
         public string? Instrument { get; set; }
         public string? Bio { get; set; }
         public string? Email { get; set; }
         public int? ClassFull { get; set; }
         public int? ClassLimit { get; set; }
-        public decimal? ChargesPerSession { get; set; }
     }
 
     public class AddTeacherAvailabilityRequest
     {
-        public string? SessionToken { get; set; }
+        public string? Email { get; set; }
         public string? Day { get; set; }
         public string? StartTime { get; set; }
         public string? EndTime { get; set; }
@@ -1151,12 +901,12 @@ namespace FreelanceMusicAPI.Controllers
 
     public class GetTeacherAvailabilityRequest
     {
-        public string? SessionToken { get; set; }
+        public string? Email { get; set; }
     }
 
     public class SetTeacherAvailabilityRequest
     {
-        public string? SessionToken { get; set; }
+        public string? Email { get; set; }
         public List<AvailabilitySlot>? Availability { get; set; }
     }
 
@@ -1168,30 +918,25 @@ namespace FreelanceMusicAPI.Controllers
         public bool IsAvailable { get; set; }
     }
 
-    public class GetAvailableTeachersRequest
+    public class GetTeachersListRequest
     {
-        public string? SessionToken { get; set; }
         public string? Instrument { get; set; }
     }
 
     public class GetTeacherScheduleRequest
     {
-        public string? SessionToken { get; set; }
-        public int TeacherId { get; set; }
+        public string? TeacherId { get; set; }
     }
 
-    public class GetLessonsRequest
+    public class AddStudentStudyingRequest
     {
-        public string? SessionToken { get; set; }
+        public string? StudentEmail { get; set; }
+        public string? TeacherEmail { get; set; }
+        public string? Day { get; set; }
     }
 
-    public class BookLessonRequest
+    public class GetStudentStudyingRequest
     {
-        public string? SessionToken { get; set; }
-        public int TeacherId { get; set; }
-        public string? Instrument { get; set; }
-        public string? LessonDate { get; set; }
-        public string? LessonTime { get; set; }
-        public string? LessonType { get; set; }
+        public string? StudentEmail { get; set; }
     }
 }

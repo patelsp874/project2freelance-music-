@@ -179,25 +179,8 @@ async function performLoginAPI(email, password) {
 
 async function logoutUserAPI() {
     try {
-        const sessionToken = localStorage.getItem('sessionToken');
-        if (!sessionToken) {
-            return { success: false, error: 'No active session' };
-        }
-
-        const response = await fetch(`${API_BASE_URL}/Auth/logout`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ SessionToken: sessionToken })
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Logout API error:', errorText);
-            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
-        }
-
-        const result = await response.json();
-        return result;
+        // Since we're not using sessions anymore, logout is just frontend cleanup
+        return { success: true, message: 'Logged out successfully' };
     } catch (error) {
         console.error('Logout error:', error);
         return { success: false, error: error.message };
@@ -323,7 +306,6 @@ window.handleLogin = async function() {
     const result = await performLogin(email, password);
     
     if (result.success) {
-        localStorage.setItem('sessionToken', result.sessionToken);
         localStorage.setItem('userEmail', email);
         localStorage.setItem('userName', result.userName);
         localStorage.setItem('accountType', result.accountType);
@@ -348,7 +330,7 @@ window.logoutUser = async function() {
     
     if (result.success) {
         // Clear local storage
-        localStorage.removeItem('sessionToken');
+        localStorage.removeItem('userEmail');
         localStorage.removeItem('userEmail');
         localStorage.removeItem('userName');
         localStorage.removeItem('accountType');
@@ -381,7 +363,7 @@ function updateAuthUI() {
 }
 
 function updateAuthUIInternal() {
-    const sessionToken = localStorage.getItem('sessionToken');
+    const userEmail = localStorage.getItem('userEmail');
     const userName = localStorage.getItem('userName');
     const accountType = localStorage.getItem('accountType');
     
@@ -393,9 +375,9 @@ function updateAuthUIInternal() {
     const teacherDashboardLink = document.getElementById('teacherDashboardLink');
     const adminDashboardLink = document.getElementById('adminDashboardLink');
     
-    console.log('updateAuthUI called:', { sessionToken, userName, accountType, loginSignupButtons, userInfo });
+    console.log('updateAuthUI called:', { userEmail, userName, accountType, loginSignupButtons, userInfo });
     
-    if (sessionToken && userName) {
+    if (userEmail && userName) {
         // User is logged in
         console.log('User is logged in, hiding login/signup buttons and showing role-specific dashboard');
         if (loginSignupButtons) loginSignupButtons.classList.add('d-none');
@@ -449,18 +431,18 @@ function updateAuthUIInternal() {
 // Student Dashboard API Functions
 async function getAvailableTeachers(instrument = '') {
     try {
-        const sessionToken = localStorage.getItem('sessionToken');
-        if (!sessionToken) {
+        const userEmail = localStorage.getItem('userEmail');
+        if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
 
         console.log('Searching for teachers with instrument:', instrument);
-        console.log('Using session token:', sessionToken.substring(0, 10) + '...');
+        console.log('Using user email:', userEmail);
 
         const response = await fetch(`${API_BASE_URL}/Auth/teachers/list`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionToken, instrument })
+            body: JSON.stringify({ userEmail, instrument })
         });
 
         console.log('API response status:', response.status);
@@ -483,15 +465,15 @@ async function getAvailableTeachers(instrument = '') {
 
 async function getTeacherSchedule(teacherId) {
     try {
-        const sessionToken = localStorage.getItem('sessionToken');
-        if (!sessionToken) {
+        const userEmail = localStorage.getItem('userEmail');
+        if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
 
-        const response = await fetch(`${API_BASE_URL}/Auth/teacher-schedule/get`, {
+        const response = await fetch(`${API_BASE_URL}/Auth/teacher-availability/get`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionToken, teacherId })
+            body: JSON.stringify({ userEmail, teacherId })
         });
 
         if (!response.ok) {
@@ -508,16 +490,16 @@ async function getTeacherSchedule(teacherId) {
 
 async function bookLesson(teacherId, instrument, lessonDate, lessonTime, lessonType) {
     try {
-        const sessionToken = localStorage.getItem('sessionToken');
-        if (!sessionToken) {
+        const userEmail = localStorage.getItem('userEmail');
+        if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
 
-        const response = await fetch(`${API_BASE_URL}/Auth/lessons/book`, {
+        const response = await fetch(`${API_BASE_URL}/Auth/student-studying/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                sessionToken, 
+                userEmail, 
                 teacherId, 
                 instrument, 
                 lessonDate, 
@@ -540,15 +522,15 @@ async function bookLesson(teacherId, instrument, lessonDate, lessonTime, lessonT
 
 async function getStudentLessons() {
     try {
-        const sessionToken = localStorage.getItem('sessionToken');
-        if (!sessionToken) {
+        const userEmail = localStorage.getItem('userEmail');
+        if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
 
-        const response = await fetch(`${API_BASE_URL}/Auth/lessons/get`, {
+        const response = await fetch(`${API_BASE_URL}/Auth/student-studying/get`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionToken })
+            body: JSON.stringify({ userEmail })
         });
 
         if (!response.ok) {
@@ -566,15 +548,15 @@ async function getStudentLessons() {
 // Teacher Dashboard API Functions
 async function getTeacherProfile() {
     try {
-        const sessionToken = localStorage.getItem('sessionToken');
-        if (!sessionToken) {
+        const userEmail = localStorage.getItem('userEmail');
+        if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
 
         const response = await fetch(`${API_BASE_URL}/Auth/teacher-profile/get`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionToken })
+            body: JSON.stringify({ userEmail })
         });
 
         if (!response.ok) {
@@ -591,8 +573,8 @@ async function getTeacherProfile() {
 
 async function createTeacherProfile(profileData) {
     try {
-        const sessionToken = localStorage.getItem('sessionToken');
-        if (!sessionToken) {
+        const userEmail = localStorage.getItem('userEmail');
+        if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
 
@@ -600,14 +582,13 @@ async function createTeacherProfile(profileData) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                sessionToken, 
+                userEmail, 
                 name: profileData.name,
                 instrument: profileData.instrument,
                 bio: profileData.bio,
                 email: profileData.email,
                 classFull: profileData.classFull,
                 classLimit: profileData.classLimit,
-                chargesPerSession: profileData.chargesPerSession
             })
         });
 
@@ -625,8 +606,8 @@ async function createTeacherProfile(profileData) {
 
 async function updateTeacherProfileAPI(profileData) {
     try {
-        const sessionToken = localStorage.getItem('sessionToken');
-        if (!sessionToken) {
+        const userEmail = localStorage.getItem('userEmail');
+        if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
 
@@ -634,14 +615,13 @@ async function updateTeacherProfileAPI(profileData) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                sessionToken, 
+                userEmail, 
                 name: profileData.name,
                 instrument: profileData.instrument,
                 bio: profileData.bio,
                 email: profileData.email,
                 classFull: profileData.classFull,
                 classLimit: profileData.classLimit,
-                chargesPerSession: profileData.chargesPerSession
             })
         });
 
@@ -659,15 +639,15 @@ async function updateTeacherProfileAPI(profileData) {
 
 async function addTeacherAvailabilityAPI(day, startTime, endTime) {
     try {
-        const sessionToken = localStorage.getItem('sessionToken');
-        if (!sessionToken) {
+        const userEmail = localStorage.getItem('userEmail');
+        if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
 
         const response = await fetch(`${API_BASE_URL}/Auth/teacher-availability/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionToken, day, startTime, endTime })
+            body: JSON.stringify({ userEmail, day, startTime, endTime })
         });
 
         if (!response.ok) {
@@ -684,15 +664,15 @@ async function addTeacherAvailabilityAPI(day, startTime, endTime) {
 
 async function getTeacherAvailability() {
     try {
-        const sessionToken = localStorage.getItem('sessionToken');
-        if (!sessionToken) {
+        const userEmail = localStorage.getItem('userEmail');
+        if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
 
         const response = await fetch(`${API_BASE_URL}/Auth/teacher-availability/get`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionToken })
+            body: JSON.stringify({ userEmail })
         });
 
         if (!response.ok) {
@@ -709,15 +689,15 @@ async function getTeacherAvailability() {
 
 async function setTeacherAvailability(availability) {
     try {
-        const sessionToken = localStorage.getItem('sessionToken');
-        if (!sessionToken) {
+        const userEmail = localStorage.getItem('userEmail');
+        if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
 
         const response = await fetch(`${API_BASE_URL}/Auth/teacher-availability/set`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionToken, availability })
+            body: JSON.stringify({ userEmail, availability })
         });
 
         if (!response.ok) {
@@ -734,15 +714,15 @@ async function setTeacherAvailability(availability) {
 
 async function getTeacherLessons() {
     try {
-        const sessionToken = localStorage.getItem('sessionToken');
-        if (!sessionToken) {
+        const userEmail = localStorage.getItem('userEmail');
+        if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
 
-        const response = await fetch(`${API_BASE_URL}/Auth/lessons/get`, {
+        const response = await fetch(`${API_BASE_URL}/Auth/student-studying/get`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionToken })
+            body: JSON.stringify({ userEmail })
         });
 
         if (!response.ok) {
@@ -763,10 +743,10 @@ window.loadStudentDashboard = async function() {
     if (!container) return;
 
     // Check if user is logged in
-    const sessionToken = localStorage.getItem('sessionToken');
+    const userEmail = localStorage.getItem('userEmail');
     const accountType = localStorage.getItem('accountType');
     
-    if (!sessionToken) {
+    if (!userEmail) {
         container.innerHTML = `
             <div class="container-fluid py-4">
                 <div class="alert alert-warning">
@@ -1111,10 +1091,10 @@ window.loadTeacherDashboard = async function() {
     if (!container) return;
 
     // Check if user is logged in
-    const sessionToken = localStorage.getItem('sessionToken');
+    const userEmail = localStorage.getItem('userEmail');
     const accountType = localStorage.getItem('accountType');
     
-    if (!sessionToken) {
+    if (!userEmail) {
         container.innerHTML = `
             <div class="container-fluid py-4">
                 <div class="alert alert-warning">
@@ -1189,14 +1169,13 @@ async function handleTeacherOnboarding(event) {
         instrument: document.getElementById('teacherInstrument').value,
         classFull: document.getElementById('teacherClassFull').checked ? 1 : 0,
         classLimit: parseInt(document.getElementById('teacherClassLimit').value),
-        chargesPerSession: parseFloat(document.getElementById('teacherCharges').value),
         email: document.getElementById('teacherEmail').value.trim(),
         bio: document.getElementById('teacherBio').value.trim()
     };
     
     // Validate form data
     if (!formData.name || !formData.instrument || !formData.classLimit || 
-        !formData.chargesPerSession || !formData.email || !formData.bio) {
+        !formData.email || !formData.bio) {
         alert('Please fill in all required fields.');
         return;
     }
@@ -1276,7 +1255,6 @@ async function loadTeacherProfileForEdit() {
             document.getElementById('editTeacherInstrument').value = profile.instrument || '';
             document.getElementById('editTeacherClassFull').checked = profile.classFull || false;
             document.getElementById('editTeacherClassLimit').value = profile.classLimit || '';
-            document.getElementById('editTeacherCharges').value = profile.chargesPerSession || '';
             document.getElementById('editTeacherEmail').value = profile.email || '';
             document.getElementById('editTeacherBio').value = profile.bio || '';
         }
@@ -1291,14 +1269,13 @@ async function updateTeacherProfile() {
         instrument: document.getElementById('editTeacherInstrument').value,
         classFull: document.getElementById('editTeacherClassFull').checked ? 1 : 0,
         classLimit: parseInt(document.getElementById('editTeacherClassLimit').value),
-        chargesPerSession: parseFloat(document.getElementById('editTeacherCharges').value),
         email: document.getElementById('editTeacherEmail').value.trim(),
         bio: document.getElementById('editTeacherBio').value.trim()
     };
     
     // Validate form data
     if (!formData.name || !formData.instrument || !formData.classLimit || 
-        !formData.chargesPerSession || !formData.email || !formData.bio) {
+        !formData.email || !formData.bio) {
         alert('Please fill in all required fields.');
         return;
     }
@@ -2538,7 +2515,7 @@ window.performLogin = async function() {
         const result = await performLoginAPI(email, password);
         
         if (result.success) {
-            localStorage.setItem('sessionToken', result.sessionToken);
+            localStorage.setItem('userEmail', result.userEmail);
             localStorage.setItem('userEmail', email);
             localStorage.setItem('userName', `${result.user.firstName} ${result.user.lastName}`);
             localStorage.setItem('accountType', result.user.accountType);

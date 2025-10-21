@@ -16,7 +16,8 @@ CREATE TABLE Student (
     student_name TEXT NOT NULL,
     student_email TEXT NOT NULL UNIQUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    studentpassword INTEGER UNIQUE
 );
 
 -- Create Teacher Table
@@ -27,6 +28,7 @@ CREATE TABLE Teacher (
     instrument TEXT NOT NULL,
     class_full INTEGER DEFAULT 0 CHECK (class_full IN (0, 1)), -- 0 = false, 1 = true
     class_limit INTEGER DEFAULT 10,
+    current_class INTEGER DEFAULT 0,
     bio TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -71,11 +73,11 @@ INSERT INTO Student (student_name, student_email) VALUES
 ('Sarah Johnson', 'sarah.johnson@email.com'),
 ('Mike Davis', 'mike.davis@email.com');
 
-INSERT INTO Teacher (teacher_name, teacher_email, instrument, class_full, class_limit, bio) VALUES 
-('Alice Wilson', 'alice.wilson@email.com', 'Piano', 0, 8, 'Professional pianist with 15 years of teaching experience'),
-('Bob Brown', 'bob.brown@email.com', 'Guitar', 0, 10, 'Classical and acoustic guitar specialist'),
-('Carol Green', 'carol.green@email.com', 'Violin', 1, 6, 'Orchestral violinist and music theory expert'),
-('David Lee', 'david.lee@email.com', 'Drums', 0, 12, 'Jazz and rock drumming instructor');
+INSERT INTO Teacher (teacher_name, teacher_email, instrument, class_full, class_limit, current_class, bio) VALUES 
+('Alice Wilson', 'alice.wilson@email.com', 'Piano', 0, 8, 0, 'Professional pianist with 15 years of teaching experience'),
+('Bob Brown', 'bob.brown@email.com', 'Guitar', 0, 10, 0, 'Classical and acoustic guitar specialist'),
+('Carol Green', 'carol.green@email.com', 'Violin', 1, 6, 6, 'Orchestral violinist and music theory expert'),
+('David Lee', 'david.lee@email.com', 'Drums', 0, 12, 0, 'Jazz and rock drumming instructor');
 
 INSERT INTO Teacher_Day_Availability (teacher_id, day, available, start_time, end_time) VALUES 
 (1, 'Monday', 1, '09:00', '17:00'),

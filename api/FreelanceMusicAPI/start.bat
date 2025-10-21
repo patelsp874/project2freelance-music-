@@ -2,8 +2,8 @@
 echo Starting Freelance Music API...
 echo.
 
-echo API will be available at: https://localhost:7000
-echo Swagger UI will be available at: https://localhost:7000/swagger
+echo API will be available at: http://localhost:5168
+echo Swagger UI will be available at: http://localhost:5168/swagger
 echo.
 
 REM Start the API server
