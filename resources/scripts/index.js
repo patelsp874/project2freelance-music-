@@ -1,4 +1,118 @@
 // API Configuration
+// Loading Screen Management
+function hideLoadingScreen() {
+    const loadingScreen = document.getElementById('loadingScreen');
+    if (loadingScreen) {
+        loadingScreen.classList.add('fade-out');
+        setTimeout(() => {
+            loadingScreen.style.display = 'none';
+        }, 500);
+    }
+}
+
+// Animated Counter for Stats
+function animateCounters() {
+    const counters = document.querySelectorAll('.stat-number');
+    
+    counters.forEach(counter => {
+        const target = parseInt(counter.getAttribute('data-target'));
+        const duration = 2000; // 2 seconds
+        const increment = target / (duration / 16); // 60fps
+        let current = 0;
+        
+        const timer = setInterval(() => {
+            current += increment;
+            if (current >= target) {
+                current = target;
+                clearInterval(timer);
+            }
+            counter.textContent = Math.floor(current);
+        }, 16);
+    });
+}
+
+// Interactive Button Effects
+function initInteractiveButtons() {
+    const buttons = document.querySelectorAll('.interactive-btn');
+    
+    buttons.forEach(button => {
+        button.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px) scale(1.02)';
+        });
+        
+        button.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0) scale(1)';
+        });
+        
+        button.addEventListener('click', function(e) {
+            // Create ripple effect
+            const ripple = document.createElement('span');
+            const rect = this.getBoundingClientRect();
+            const size = Math.max(rect.width, rect.height);
+            const x = e.clientX - rect.left - size / 2;
+            const y = e.clientY - rect.top - size / 2;
+            
+            ripple.style.cssText = `
+                position: absolute;
+                width: ${size}px;
+                height: ${size}px;
+                left: ${x}px;
+                top: ${y}px;
+                background: rgba(255,255,255,0.3);
+                border-radius: 50%;
+                transform: scale(0);
+                animation: ripple 0.6s ease-out;
+                pointer-events: none;
+            `;
+            
+            this.appendChild(ripple);
+            
+            setTimeout(() => {
+                ripple.remove();
+            }, 600);
+        });
+    });
+}
+
+// Add ripple animation CSS
+const rippleCSS = `
+@keyframes ripple {
+    to {
+        transform: scale(2);
+        opacity: 0;
+    }
+}
+`;
+
+// Inject ripple CSS
+const style = document.createElement('style');
+style.textContent = rippleCSS;
+document.head.appendChild(style);
+
+// Initialize everything when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Hide loading screen after 2 seconds
+    setTimeout(hideLoadingScreen, 2000);
+    
+    // Initialize interactive elements
+    initInteractiveButtons();
+    
+    // Animate counters when hero section is visible
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                animateCounters();
+                observer.unobserve(entry.target);
+            }
+        });
+    });
+    
+    const heroStats = document.querySelector('.hero-stats');
+    if (heroStats) {
+        observer.observe(heroStats);
+    }
+});
+
 const API_BASE_URL = 'http://localhost:5168/api';
 
 // Authentication Functions
@@ -110,6 +224,47 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
+// Bottom Corner Notification System
+function showBottomCornerNotification(message, type = 'success') {
+    // Remove any existing bottom corner notifications
+    const existingNotification = document.querySelector('.bottom-corner-notification');
+    if (existingNotification) {
+        existingNotification.remove();
+    }
+    
+    const notification = document.createElement('div');
+    notification.className = `bottom-corner-notification ${type}`;
+    
+    const iconMap = {
+        success: '✓',
+        error: '✕',
+        warning: '⚠',
+        info: 'ℹ'
+    };
+    
+    notification.innerHTML = `
+        <div class="notification-content">
+            <div class="notification-icon">${iconMap[type] || iconMap.info}</div>
+            <div class="notification-text">${message}</div>
+            <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto remove after 4 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.style.animation = 'slideInFromBottom 0.3s ease-in reverse';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 300);
+        }
+    }, 4000);
+}
+
 // Authentication UI Functions
 window.showSignupModal = function() {
     const modal = new bootstrap.Modal(document.getElementById('signupModal'));
@@ -147,7 +302,7 @@ window.handleSignup = async function() {
     const result = await performSignup(firstName, lastName, email, password, accountType);
     
     if (result.success) {
-        showNotification('Account created successfully! Please log in.', 'success');
+        showBottomCornerNotification('Account created successfully! Please log in.', 'success');
         bootstrap.Modal.getInstance(document.getElementById('signupModal')).hide();
         // Clear form
         document.getElementById('signupForm').reset();
@@ -173,7 +328,7 @@ window.handleLogin = async function() {
         localStorage.setItem('userName', result.userName);
         localStorage.setItem('accountType', result.accountType);
         
-        showNotification(`Welcome back, ${result.userName}!`, 'success');
+        showBottomCornerNotification(`Welcome back, ${result.userName}!`, 'success');
         bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
         
         // Update UI
@@ -198,7 +353,7 @@ window.logoutUser = async function() {
         localStorage.removeItem('userName');
         localStorage.removeItem('accountType');
         
-        showNotification('You have been logged out successfully.', 'success');
+        showBottomCornerNotification('You have been logged out successfully.', 'success');
         
         // Update UI
         updateAuthUI();
@@ -210,7 +365,22 @@ window.logoutUser = async function() {
     }
 };
 
+// Debounce mechanism for updateAuthUI
+let updateAuthUITimeout = null;
+
 function updateAuthUI() {
+    // Clear any pending update
+    if (updateAuthUITimeout) {
+        clearTimeout(updateAuthUITimeout);
+    }
+    
+    // Debounce the update to prevent multiple rapid calls
+    updateAuthUITimeout = setTimeout(() => {
+        updateAuthUIInternal();
+    }, 50);
+}
+
+function updateAuthUIInternal() {
     const sessionToken = localStorage.getItem('sessionToken');
     const userName = localStorage.getItem('userName');
     const accountType = localStorage.getItem('accountType');
@@ -218,12 +388,19 @@ function updateAuthUI() {
     const loginSignupButtons = document.getElementById('loginSignupButtons');
     const userInfo = document.getElementById('userInfo');
     
-    console.log('updateAuthUI called:', { sessionToken, userName, loginSignupButtons, userInfo });
+    // Dashboard links
+    const studentDashboardLink = document.getElementById('studentDashboardLink');
+    const teacherDashboardLink = document.getElementById('teacherDashboardLink');
+    const adminDashboardLink = document.getElementById('adminDashboardLink');
+    
+    console.log('updateAuthUI called:', { sessionToken, userName, accountType, loginSignupButtons, userInfo });
     
     if (sessionToken && userName) {
         // User is logged in
-        console.log('User is logged in, hiding login/signup buttons');
+        console.log('User is logged in, hiding login/signup buttons and showing role-specific dashboard');
         if (loginSignupButtons) loginSignupButtons.classList.add('d-none');
+        
+        // Show user info
         if (userInfo) {
             userInfo.classList.remove('d-none');
             userInfo.innerHTML = `
@@ -233,11 +410,39 @@ function updateAuthUI() {
                 <button id="logoutBtn" class="btn btn-outline btn-sm" onclick="logoutUser()">Logout</button>
             `;
         }
+        
+        // Show only the dashboard for the user's role
+        if (accountType) {
+            // Hide all dashboard links first
+            if (studentDashboardLink) studentDashboardLink.classList.add('d-none');
+            if (teacherDashboardLink) teacherDashboardLink.classList.add('d-none');
+            if (adminDashboardLink) adminDashboardLink.classList.add('d-none');
+            
+            // Show only the appropriate dashboard based on role
+            switch (accountType.toLowerCase()) {
+                case 'student':
+                    if (studentDashboardLink) studentDashboardLink.classList.remove('d-none');
+                    break;
+                case 'teacher':
+                    if (teacherDashboardLink) teacherDashboardLink.classList.remove('d-none');
+                    break;
+                case 'admin':
+                    if (adminDashboardLink) adminDashboardLink.classList.remove('d-none');
+                    break;
+                default:
+                    console.warn('Unknown account type:', accountType);
+            }
+        }
     } else {
         // User is not logged in
-        console.log('User is not logged in, showing login/signup buttons');
+        console.log('User is not logged in, showing login/signup buttons and hiding all dashboards');
         if (loginSignupButtons) loginSignupButtons.classList.remove('d-none');
         if (userInfo) userInfo.classList.add('d-none');
+        
+        // Hide all dashboard links
+        if (studentDashboardLink) studentDashboardLink.classList.add('d-none');
+        if (teacherDashboardLink) teacherDashboardLink.classList.add('d-none');
+        if (adminDashboardLink) adminDashboardLink.classList.add('d-none');
     }
 }
 
@@ -249,17 +454,26 @@ async function getAvailableTeachers(instrument = '') {
             return { success: false, error: 'No active session. Please login again.' };
         }
 
+        console.log('Searching for teachers with instrument:', instrument);
+        console.log('Using session token:', sessionToken.substring(0, 10) + '...');
+
         const response = await fetch(`${API_BASE_URL}/Auth/teachers/list`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sessionToken, instrument })
         });
 
+        console.log('API response status:', response.status);
+
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorText = await response.text();
+            console.error('API error response:', errorText);
+            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
         }
 
         const result = await response.json();
+        console.log('API response data:', result);
+        
         return result;
     } catch (error) {
         console.error('Get available teachers error:', error);
@@ -375,7 +589,7 @@ async function getTeacherProfile() {
     }
 }
 
-async function createTeacherProfile(name, instrument, bio, contactInfo) {
+async function createTeacherProfile(profileData) {
     try {
         const sessionToken = localStorage.getItem('sessionToken');
         if (!sessionToken) {
@@ -385,7 +599,16 @@ async function createTeacherProfile(name, instrument, bio, contactInfo) {
         const response = await fetch(`${API_BASE_URL}/Auth/teacher-profile/create`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionToken, name, instrument, bio, contactInfo })
+            body: JSON.stringify({ 
+                sessionToken, 
+                name: profileData.name,
+                instrument: profileData.instrument,
+                bio: profileData.bio,
+                email: profileData.email,
+                classFull: profileData.classFull,
+                classLimit: profileData.classLimit,
+                chargesPerSession: profileData.chargesPerSession
+            })
         });
 
         if (!response.ok) {
@@ -400,17 +623,26 @@ async function createTeacherProfile(name, instrument, bio, contactInfo) {
     }
 }
 
-async function updateTeacherProfile(name, instrument, bio, contactInfo) {
+async function updateTeacherProfileAPI(profileData) {
     try {
         const sessionToken = localStorage.getItem('sessionToken');
         if (!sessionToken) {
             return { success: false, error: 'No active session. Please login again.' };
         }
 
-        const response = await fetch(`${API_BASE_URL}/auth/teacher/profile/update`, {
+        const response = await fetch(`${API_BASE_URL}/Auth/teacher-profile/update`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionToken, name, instrument, bio, contactInfo })
+            body: JSON.stringify({ 
+                sessionToken, 
+                name: profileData.name,
+                instrument: profileData.instrument,
+                bio: profileData.bio,
+                email: profileData.email,
+                classFull: profileData.classFull,
+                classLimit: profileData.classLimit,
+                chargesPerSession: profileData.chargesPerSession
+            })
         });
 
         if (!response.ok) {
@@ -421,6 +653,31 @@ async function updateTeacherProfile(name, instrument, bio, contactInfo) {
         return result;
     } catch (error) {
         console.error('Update teacher profile error:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+async function addTeacherAvailabilityAPI(day, startTime, endTime) {
+    try {
+        const sessionToken = localStorage.getItem('sessionToken');
+        if (!sessionToken) {
+            return { success: false, error: 'No active session. Please login again.' };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/Auth/teacher-availability/add`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionToken, day, startTime, endTime })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Add teacher availability error:', error);
         return { success: false, error: error.message };
     }
 }
@@ -630,7 +887,7 @@ window.loadAvailableTeachers = async function() {
                             <p class="card-text">
                                 <strong><i class="fas fa-music me-1"></i>Instrument:</strong> ${teacher.instrument}<br>
                                 <strong><i class="fas fa-info-circle me-1"></i>Bio:</strong> ${teacher.bio}<br>
-                                <strong><i class="fas fa-envelope me-1"></i>Contact:</strong> ${teacher.contactInfo}<br>
+                                <strong><i class="fas fa-envelope me-1"></i>Contact:</strong> ${teacher.email}<br>
                                 <small class="text-muted">
                                     <i class="fas fa-calendar-check me-1"></i>${teacher.availabilityCount} available time slots
                                 </small>
@@ -883,89 +1140,270 @@ window.loadTeacherDashboard = async function() {
         return;
     }
 
-    container.innerHTML = `
-        <div class="container-fluid py-4">
-            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
-                <div>
-                    <h1 class="h2 mb-0">Teacher Dashboard</h1>
-                    <p class="text-muted mb-0">Manage your profile, availability, and view your lessons</p>
-                </div>
-                <div>
-                    <a href="#home" class="btn btn-outline-secondary" onclick="showPage('home')"><i class="fas fa-arrow-left me-1"></i> Back to Home</a>
-                </div>
-            </div>
+    // Check if teacher profile is complete
+    try {
+        const profileResult = await getTeacherProfile();
+        
+        if (profileResult.success && profileResult.profile) {
+            // Profile exists, show dashboard content
+            showTeacherDashboardContent();
+            loadTeacherDashboardData();
+        } else {
+            // Profile incomplete, show onboarding form
+            showTeacherOnboardingForm();
+        }
+    } catch (error) {
+        console.error('Error checking teacher profile:', error);
+        // On error, show onboarding form
+        showTeacherOnboardingForm();
+    }
+}
 
-            <!-- Teacher Profile -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5><i class="fas fa-user-tie me-2"></i>My Profile</h5>
-                </div>
-                <div class="card-body">
-                    <div id="teacherProfileSummary">Loading profile...</div>
-                    <button class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#teacherProfileModal">
-                        <i class="fas fa-edit me-1"></i>Edit Profile
-                    </button>
-                </div>
-            </div>
+function showTeacherOnboardingForm() {
+    const onboardingDiv = document.getElementById('teacher-onboarding');
+    const dashboardDiv = document.getElementById('teacher-dashboard-content');
+    
+    if (onboardingDiv) onboardingDiv.classList.remove('d-none');
+    if (dashboardDiv) dashboardDiv.classList.add('d-none');
+    
+    // Add form submission handler
+    const form = document.getElementById('teacherOnboardingForm');
+    if (form) {
+        form.addEventListener('submit', handleTeacherOnboarding);
+    }
+}
 
-            <!-- Availability Management -->
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h5><i class="fas fa-calendar-alt me-2"></i>Set Weekly Availability</h5>
+function showTeacherDashboardContent() {
+    const onboardingDiv = document.getElementById('teacher-onboarding');
+    const dashboardDiv = document.getElementById('teacher-dashboard-content');
+    
+    if (onboardingDiv) onboardingDiv.classList.add('d-none');
+    if (dashboardDiv) dashboardDiv.classList.remove('d-none');
+}
+
+async function handleTeacherOnboarding(event) {
+    event.preventDefault();
+    
+    const formData = {
+        name: document.getElementById('teacherName').value.trim(),
+        instrument: document.getElementById('teacherInstrument').value,
+        classFull: document.getElementById('teacherClassFull').checked ? 1 : 0,
+        classLimit: parseInt(document.getElementById('teacherClassLimit').value),
+        chargesPerSession: parseFloat(document.getElementById('teacherCharges').value),
+        email: document.getElementById('teacherEmail').value.trim(),
+        bio: document.getElementById('teacherBio').value.trim()
+    };
+    
+    // Validate form data
+    if (!formData.name || !formData.instrument || !formData.classLimit || 
+        !formData.chargesPerSession || !formData.email || !formData.bio) {
+        alert('Please fill in all required fields.');
+        return;
+    }
+    
+    try {
+        const result = await createTeacherProfile(formData);
+        
+        if (result.success) {
+            // Profile created successfully, show dashboard
+            showTeacherDashboardContent();
+            loadTeacherDashboardData();
+            
+            // Show success message
+            showNotification('Profile created successfully! You can now start teaching.', 'success');
+        } else {
+            alert('Error creating profile: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Error creating teacher profile:', error);
+        alert('Error creating profile. Please try again.');
+    }
+}
+
+async function loadTeacherDashboardData() {
+    try {
+        // Load teacher profile data
+        const profileResult = await getTeacherProfile();
+        
+        if (profileResult.success && profileResult.profile) {
+            const profile = profileResult.profile;
+            
+            // Update dashboard stats (placeholder data for now)
+            document.getElementById('totalStudents').textContent = '0';
+            document.getElementById('weeklyLessons').textContent = '0';
+            document.getElementById('monthlyEarnings').textContent = '$0';
+            document.getElementById('teacherRating').textContent = '5.0';
+            
+            // Load upcoming lessons (placeholder for now)
+            const upcomingLessonsDiv = document.getElementById('upcomingLessons');
+            if (upcomingLessonsDiv) {
+                upcomingLessonsDiv.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
+                        <h6 class="text-muted">No upcoming lessons</h6>
+                        <p class="text-muted">Students will be able to book lessons once you set your availability.</p>
                 </div>
-                <div class="card-body">
-                    <div id="availabilityForm">
-                        <p class="text-muted mb-3">Set your weekly availability schedule. Students will be able to book lessons during these times.</p>
-                        <div class="row">
-                            ${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => `
-                                <div class="col-md-6 col-lg-4 mb-3">
-                                    <div class="card border-primary">
-                                        <div class="card-body">
-                                            <h6 class="card-title text-primary">
-                                                <i class="fas fa-calendar-day me-1"></i>${day}
-                                            </h6>
-                                            <div class="form-check mb-2">
-                                                <input class="form-check-input" type="checkbox" id="${day.toLowerCase()}Available">
-                                                <label class="form-check-label" for="${day.toLowerCase()}Available">Available</label>
-                                            </div>
-                                            <div class="row">
-                                                <div class="col-6">
-                                                    <label class="form-label small">Start Time</label>
-                                                    <input type="time" class="form-control form-control-sm" id="${day.toLowerCase()}Start">
-                                                </div>
-                                                <div class="col-6">
-                                                    <label class="form-label small">End Time</label>
-                                                    <input type="time" class="form-control form-control-sm" id="${day.toLowerCase()}End">
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
-                        <button class="btn btn-success" onclick="saveTeacherAvailability()">
-                            <i class="fas fa-save me-1"></i>Save Availability
+                `;
+            }
+        }
+    } catch (error) {
+        console.error('Error loading teacher dashboard data:', error);
+    }
+}
+
+// Modal functions for teacher dashboard
+function showAvailabilityModal() {
+    const modal = new bootstrap.Modal(document.getElementById('availabilityModal'));
+    modal.show();
+    loadCurrentAvailability();
+}
+
+function showEditProfileModal() {
+    const modal = new bootstrap.Modal(document.getElementById('editProfileModal'));
+    modal.show();
+    loadTeacherProfileForEdit();
+}
+
+async function loadTeacherProfileForEdit() {
+    try {
+        const result = await getTeacherProfile();
+        
+        if (result.success && result.profile) {
+            const profile = result.profile;
+            
+            // Populate edit form fields
+            document.getElementById('editTeacherName').value = profile.name || '';
+            document.getElementById('editTeacherInstrument').value = profile.instrument || '';
+            document.getElementById('editTeacherClassFull').checked = profile.classFull || false;
+            document.getElementById('editTeacherClassLimit').value = profile.classLimit || '';
+            document.getElementById('editTeacherCharges').value = profile.chargesPerSession || '';
+            document.getElementById('editTeacherEmail').value = profile.email || '';
+            document.getElementById('editTeacherBio').value = profile.bio || '';
+        }
+    } catch (error) {
+        console.error('Error loading teacher profile for edit:', error);
+    }
+}
+
+async function updateTeacherProfile() {
+    const formData = {
+        name: document.getElementById('editTeacherName').value.trim(),
+        instrument: document.getElementById('editTeacherInstrument').value,
+        classFull: document.getElementById('editTeacherClassFull').checked ? 1 : 0,
+        classLimit: parseInt(document.getElementById('editTeacherClassLimit').value),
+        chargesPerSession: parseFloat(document.getElementById('editTeacherCharges').value),
+        email: document.getElementById('editTeacherEmail').value.trim(),
+        bio: document.getElementById('editTeacherBio').value.trim()
+    };
+    
+    // Validate form data
+    if (!formData.name || !formData.instrument || !formData.classLimit || 
+        !formData.chargesPerSession || !formData.email || !formData.bio) {
+        alert('Please fill in all required fields.');
+        return;
+    }
+    
+    try {
+        const result = await updateTeacherProfileAPI(formData);
+        
+        if (result.success) {
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
+            modal.hide();
+            
+            // Reload dashboard data
+            loadTeacherDashboardData();
+            
+            // Show success message
+            showNotification('Profile updated successfully!', 'success');
+        } else {
+            alert('Error updating profile: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Error updating teacher profile:', error);
+        alert('Error updating profile. Please try again.');
+    }
+}
+
+async function addTeacherAvailability() {
+    const day = document.getElementById('availabilityDay').value;
+    const startTime = document.getElementById('availabilityStartTime').value;
+    const endTime = document.getElementById('availabilityEndTime').value;
+    
+    if (!day || !startTime || !endTime) {
+        alert('Please fill in all availability fields.');
+        return;
+    }
+    
+    try {
+        const result = await addTeacherAvailabilityAPI(day, startTime, endTime);
+        
+        if (result.success) {
+            // Clear form
+            document.getElementById('availabilityDay').value = '';
+            document.getElementById('availabilityStartTime').value = '';
+            document.getElementById('availabilityEndTime').value = '';
+            
+            // Reload availability list
+            loadCurrentAvailability();
+            
+            // Show success message
+            showNotification('Availability added successfully!', 'success');
+        } else {
+            alert('Error adding availability: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Error adding teacher availability:', error);
+        alert('Error adding availability. Please try again.');
+    }
+}
+
+async function loadCurrentAvailability() {
+    try {
+        const result = await getTeacherAvailability();
+        
+        const availabilityList = document.getElementById('currentAvailabilityList');
+        if (!availabilityList) return;
+        
+        if (result.success && result.availability && result.availability.length > 0) {
+            availabilityList.innerHTML = result.availability.map(avail => `
+                <div class="d-flex justify-content-between align-items-center mb-2 p-2 border rounded">
+                    <div>
+                        <strong>${avail.day}</strong><br>
+                        <small class="text-muted">${avail.startTime} - ${avail.endTime}</small>
+                </div>
+                    <button class="btn btn-sm btn-outline-danger" onclick="removeAvailability('${avail.day}')">
+                        <i class="fas fa-trash"></i>
                         </button>
                     </div>
-                </div>
-            </div>
+            `).join('');
+        } else {
+            availabilityList.innerHTML = '<p class="text-muted mb-0">No availability set yet.</p>';
+        }
+    } catch (error) {
+        console.error('Error loading current availability:', error);
+    }
+}
 
-            <!-- My Lessons -->
-            <div class="card">
-                <div class="card-header">
-                    <h5><i class="fas fa-calendar-check me-2"></i>My Lessons</h5>
-                </div>
-                <div class="card-body">
-                    <div id="teacherLessons">Loading lessons...</div>
-                </div>
-            </div>
-        </div>
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
+    notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+    notification.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     `;
-
-    await loadTeacherProfile();
-    await loadTeacherLessons();
-    await loadTeacherAvailability();
-};
+    
+    document.body.appendChild(notification);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 5000);
+}
 
 async function loadTeacherProfile() {
     const teacherProfileSummary = document.getElementById('teacherProfileSummary');
@@ -981,7 +1419,7 @@ async function loadTeacherProfile() {
                     <h6>${profile.name}</h6>
                     <p><strong>Instrument:</strong> ${profile.instrument}</p>
                     <p><strong>Bio:</strong> ${profile.bio}</p>
-                    <p><strong>Contact:</strong> ${profile.contactInfo}</p>
+                    <p><strong>Contact:</strong> ${profile.email}</p>
                 </div>
                 <div class="col-md-4">
                     <div class="text-end">
@@ -995,7 +1433,7 @@ async function loadTeacherProfile() {
         document.getElementById('teacherName').value = profile.name;
         document.getElementById('teacherInstrument').value = profile.instrument;
         document.getElementById('teacherBio').value = profile.bio;
-        document.getElementById('teacherContact').value = profile.contactInfo;
+        document.getElementById('teacherContact').value = profile.email;
     } else {
         teacherProfileSummary.innerHTML = `
             <div class="alert alert-warning">
@@ -1405,6 +1843,26 @@ function showPage(pageId) {
             loadStudentDashboard();
         }
     }
+    
+    // Handle landing page elements visibility
+    const landingPageElements = [
+        document.querySelector('.ads-band'),
+        document.querySelector('.feature-band'),
+        document.querySelector('.py-5'), // testimonials section
+        document.querySelector('.site-footer')
+    ];
+    
+    const isDashboardPage = ['admin-dashboard', 'teacher-dashboard', 'student-dashboard'].includes(pageId);
+    
+    landingPageElements.forEach(element => {
+        if (element) {
+            if (isDashboardPage) {
+                element.classList.add('d-none');
+            } else {
+                element.classList.remove('d-none');
+            }
+        }
+    });
     
     // Update URL hash
     location.hash = pageId;
@@ -2033,7 +2491,7 @@ window.performSignup = async function() {
         const result = await performSignupAPI(firstName, lastName, email, password, accountType);
         
         if (result.success) {
-            showModalSuccess('signup', 'Account created successfully! Please sign in.');
+            showBottomCornerNotification('Account created successfully! Please sign in.', 'success');
             setTimeout(() => {
                 bootstrap.Modal.getInstance(document.getElementById('signupModal')).hide();
                 // Clear form
@@ -2085,7 +2543,7 @@ window.performLogin = async function() {
             localStorage.setItem('userName', `${result.user.firstName} ${result.user.lastName}`);
             localStorage.setItem('accountType', result.user.accountType);
             
-            showModalSuccess('login', `Welcome back, ${result.user.firstName}!`);
+            showBottomCornerNotification(`Welcome back, ${result.user.firstName}!`, 'success');
             
             setTimeout(() => {
                 bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
@@ -2125,9 +2583,61 @@ const studentData = {
 };
 
 function loadStudentDashboard() {
-    renderStudentProfileSummary();
-    renderScheduleTable();
-    renderTeachersGrid();
+    // Load initial teacher list
+    loadTeachersList();
+}
+
+async function loadTeachersList() {
+    const container = document.getElementById('sTeachersGrid');
+    if (!container) return;
+    
+    // Show loading state
+    container.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Loading teachers...</p></div>';
+    
+    try {
+        const result = await getAvailableTeachers('');
+        
+        if (result.success && result.teachers && result.teachers.length > 0) {
+            container.innerHTML = result.teachers.map(teacher => `
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6 class="card-title">
+                                    <i class="fas fa-user-tie me-2 text-primary"></i>${teacher.name}
+                                </h6>
+                                <p class="text-muted mb-1">
+                                    <i class="fas fa-music me-2"></i>${teacher.instrument}
+                                </p>
+                                <p class="text-muted mb-1">
+                                    <i class="fas fa-info-circle me-2"></i>${teacher.bio}
+                                </p>
+                                <p class="text-muted mb-0">
+                                    <i class="fas fa-envelope me-2"></i>${teacher.email}
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-primary" onclick="viewTeacherSchedule(${teacher.userId}, '${teacher.name}')">
+                                    <i class="fas fa-calendar me-1"></i>View Schedule
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = `
+                <div class="alert alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <h6>No Teachers Available</h6>
+                    <p class="mb-0">No teachers have created profiles yet. Teachers need to sign up and create their profiles to appear in search results.</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading teachers:', error);
+        container.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>Error loading teachers. Please try again.</div>';
+    }
 }
 
 function saveStudentProfile() {
@@ -2215,19 +2725,69 @@ function renderTeachersGrid() {
     `).join('');
 }
 
-window.filterTeachersByInstrument = function() {
-    const term = (document.getElementById('sSearchInstrument').value || '').toLowerCase();
+window.filterTeachersByInstrument = async function() {
+    const term = document.getElementById('sSearchInstrument').value.trim();
     const container = document.getElementById('sTeachersGrid');
-    const filtered = studentData.teachers.filter(t => t.instrument.toLowerCase().includes(term));
-    container.innerHTML = filtered.map(t => `
-        <div class="card mb-2"><div class="card-body d-flex justify-content-between align-items-center">
-            <div>
-                <h6 class="mb-1">${t.name}</h6>
-                <div class="text-muted">${t.instrument}</div>
+    
+    if (!container) return;
+    
+    // Show loading state
+    container.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Searching teachers...</p></div>';
+    
+    try {
+        const result = await getAvailableTeachers(term);
+        
+        if (result.success && result.teachers && result.teachers.length > 0) {
+            container.innerHTML = result.teachers.map(teacher => `
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h6 class="card-title">
+                                    <i class="fas fa-user-tie me-2 text-primary"></i>${teacher.name}
+                                </h6>
+                                <p class="text-muted mb-1">
+                                    <i class="fas fa-music me-2"></i>${teacher.instrument}
+                                </p>
+                                <p class="text-muted mb-1">
+                                    <i class="fas fa-info-circle me-2"></i>${teacher.bio}
+                                </p>
+                                <p class="text-muted mb-0">
+                                    <i class="fas fa-envelope me-2"></i>${teacher.email}
+                                </p>
             </div>
-            <button class="btn btn-sm btn-outline-primary" onclick="openTeacherSlots(${t.id})">View Slots</button>
-        </div></div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-primary" onclick="viewTeacherSchedule(${teacher.userId}, '${teacher.name}')">
+                                    <i class="fas fa-calendar me-1"></i>View Schedule
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
     `).join('');
+        } else {
+            if (term) {
+                container.innerHTML = `
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-search me-2"></i>
+                        <h6>No Teachers Found</h6>
+                        <p class="mb-0">No teachers found for "${term}". Try searching for a different instrument or check back later.</p>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="alert alert-info text-center">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <h6>No Teachers Available</h6>
+                        <p class="mb-0">No teachers have created profiles yet. Teachers need to sign up and create their profiles to appear in search results.</p>
+                    </div>
+                `;
+            }
+        }
+    } catch (error) {
+        console.error('Error searching teachers:', error);
+        container.innerHTML = '<div class="alert alert-danger"><i class="fas fa-exclamation-triangle me-2"></i>Error loading teachers. Please try again.</div>';
+    }
 }
 
 window.openTeacherSlots = function(teacherId) {
