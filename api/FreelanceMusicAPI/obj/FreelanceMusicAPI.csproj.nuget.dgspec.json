@@ -1,20 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\hoang\\Documents\\sauce\\repos\\Sruja\\project2freelance-music-\\api\\FreelanceMusicAPI\\FreelanceMusicAPI.csproj": {}
+    "C:\\MIS 321\\project2freelance-music-\\api\\FreelanceMusicAPI\\FreelanceMusicAPI.csproj": {}
   },
   "projects": {
-    "C:\\Users\\hoang\\Documents\\sauce\\repos\\Sruja\\project2freelance-music-\\api\\FreelanceMusicAPI\\FreelanceMusicAPI.csproj": {
+    "C:\\MIS 321\\project2freelance-music-\\api\\FreelanceMusicAPI\\FreelanceMusicAPI.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\hoang\\Documents\\sauce\\repos\\Sruja\\project2freelance-music-\\api\\FreelanceMusicAPI\\FreelanceMusicAPI.csproj",
+        "projectUniqueName": "C:\\MIS 321\\project2freelance-music-\\api\\FreelanceMusicAPI\\FreelanceMusicAPI.csproj",
         "projectName": "FreelanceMusicAPI",
-        "projectPath": "C:\\Users\\hoang\\Documents\\sauce\\repos\\Sruja\\project2freelance-music-\\api\\FreelanceMusicAPI\\FreelanceMusicAPI.csproj",
-        "packagesPath": "C:\\Users\\hoang\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\hoang\\Documents\\sauce\\repos\\Sruja\\project2freelance-music-\\api\\FreelanceMusicAPI\\obj\\",
+        "projectPath": "C:\\MIS 321\\project2freelance-music-\\api\\FreelanceMusicAPI\\FreelanceMusicAPI.csproj",
+        "packagesPath": "C:\\Users\\sruja\\.nuget\\packages\\",
+        "outputPath": "C:\\MIS 321\\project2freelance-music-\\api\\FreelanceMusicAPI\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
-          "C:\\Users\\hoang\\AppData\\Roaming\\NuGet\\NuGet.Config"
+          "C:\\Users\\sruja\\AppData\\Roaming\\NuGet\\NuGet.Config"
         ],
         "originalTargetFrameworks": [
           "net8.0"
@@ -75,7 +75,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.405/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.415/PortableRuntimeIdentifierGraph.json"
         }
       }
     }

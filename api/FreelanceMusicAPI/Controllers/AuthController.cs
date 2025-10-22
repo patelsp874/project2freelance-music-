@@ -159,7 +159,7 @@ namespace FreelanceMusicAPI.Controllers
                     var fullName = $"{request.FirstName} {request.LastName}";
                     insertStudentCmd.Parameters.AddWithValue("@name", fullName);
                     insertStudentCmd.Parameters.AddWithValue("@email", request.Email);
-                    insertStudentCmd.Parameters.AddWithValue("@password", request.Password.GetHashCode()); // Simple hash
+                    insertStudentCmd.Parameters.AddWithValue("@password", int.Parse(request.Password)); // Password already hashed by frontend
                     insertStudentCmd.Parameters.AddWithValue("@createdAt", now);
                     insertStudentCmd.Parameters.AddWithValue("@updatedAt", now);
 
@@ -188,7 +188,7 @@ namespace FreelanceMusicAPI.Controllers
                     var fullName = $"{request.FirstName} {request.LastName}";
                     insertTeacherCmd.Parameters.AddWithValue("@name", fullName);
                     insertTeacherCmd.Parameters.AddWithValue("@email", request.Email);
-                    insertTeacherCmd.Parameters.AddWithValue("@password", request.Password.GetHashCode()); // Same hash as student
+                    insertTeacherCmd.Parameters.AddWithValue("@password", int.Parse(request.Password)); // Password already hashed by frontend
                     insertTeacherCmd.Parameters.AddWithValue("@instrument", "Not specified"); // Default value
                     insertTeacherCmd.Parameters.AddWithValue("@bio", "New teacher profile"); // Default value
                     insertTeacherCmd.Parameters.AddWithValue("@createdAt", now);
@@ -235,7 +235,7 @@ namespace FreelanceMusicAPI.Controllers
                     FROM Student 
                     WHERE student_email = @email AND studentpassword = @password";
                 getStudentCmd.Parameters.AddWithValue("@email", request.Email);
-                getStudentCmd.Parameters.AddWithValue("@password", request.Password.GetHashCode());
+                getStudentCmd.Parameters.AddWithValue("@password", int.Parse(request.Password));
 
                 using (var reader = getStudentCmd.ExecuteReader())
                 {
@@ -263,7 +263,7 @@ namespace FreelanceMusicAPI.Controllers
                     FROM Teacher 
                     WHERE teacher_email = @email AND teacher_password = @password";
                 getTeacherCmd.Parameters.AddWithValue("@email", request.Email);
-                getTeacherCmd.Parameters.AddWithValue("@password", request.Password.GetHashCode());
+                getTeacherCmd.Parameters.AddWithValue("@password", int.Parse(request.Password));
 
                 using (var teacherReader = getTeacherCmd.ExecuteReader())
                 {
@@ -303,36 +303,48 @@ namespace FreelanceMusicAPI.Controllers
             {
                 connection.Open();
 
-                    // Check if teacher profile already exists
-                    var checkProfileCmd = connection.CreateCommand();
-                    checkProfileCmd.CommandText = "SELECT COUNT(*) FROM Teacher WHERE teacher_email = @email";
-                    checkProfileCmd.Parameters.AddWithValue("@email", request.Email);
+                // Check if teacher profile exists (should exist from signup)
+                var checkProfileCmd = connection.CreateCommand();
+                checkProfileCmd.CommandText = "SELECT teacher_id FROM Teacher WHERE teacher_email = @email";
+                checkProfileCmd.Parameters.AddWithValue("@email", request.Email);
 
-                    if (Convert.ToInt32(checkProfileCmd.ExecuteScalar()) > 0)
-                    {
-                        return Conflict(new { success = false, error = "Teacher profile with this email already exists." });
-                    }
+                var existingTeacherId = checkProfileCmd.ExecuteScalar();
+                if (existingTeacherId == null)
+                {
+                    return BadRequest(new { success = false, error = "No teacher account found with this email. Please sign up first." });
+                }
 
-                // Create teacher profile in Teacher table
-                    var createProfileCmd = connection.CreateCommand();
-                    createProfileCmd.CommandText = @"
-                    INSERT INTO Teacher (teacher_name, teacher_email, instrument, class_full, class_limit, current_class, bio, created_at, updated_at)
-                    VALUES (@name, @email, @instrument, @classFull, @classLimit, 0, @bio, @createdAt, @updatedAt);
-                        SELECT last_insert_rowid();";
+                // Update existing teacher profile instead of creating new one
+                var updateProfileCmd = connection.CreateCommand();
+                updateProfileCmd.CommandText = @"
+                    UPDATE Teacher 
+                    SET teacher_name = @name, 
+                        instrument = @instrument, 
+                        class_full = @classFull, 
+                        class_limit = @classLimit, 
+                        bio = @bio, 
+                        updated_at = @updatedAt
+                    WHERE teacher_email = @email";
 
-                    var now = DateTime.UtcNow.ToString("o");
-                    createProfileCmd.Parameters.AddWithValue("@name", request.Name);
-                    createProfileCmd.Parameters.AddWithValue("@email", request.Email);
-                    createProfileCmd.Parameters.AddWithValue("@instrument", request.Instrument);
-                    createProfileCmd.Parameters.AddWithValue("@classFull", request.ClassFull ?? 0);
-                    createProfileCmd.Parameters.AddWithValue("@classLimit", request.ClassLimit ?? 10);
-                    createProfileCmd.Parameters.AddWithValue("@bio", request.Bio);
-                    createProfileCmd.Parameters.AddWithValue("@createdAt", now);
-                    createProfileCmd.Parameters.AddWithValue("@updatedAt", now);
+                var now = DateTime.UtcNow.ToString("o");
+                updateProfileCmd.Parameters.AddWithValue("@name", request.Name);
+                updateProfileCmd.Parameters.AddWithValue("@email", request.Email);
+                updateProfileCmd.Parameters.AddWithValue("@instrument", request.Instrument);
+                updateProfileCmd.Parameters.AddWithValue("@classFull", request.ClassFull ?? 0);
+                updateProfileCmd.Parameters.AddWithValue("@classLimit", request.ClassLimit ?? 10);
+                updateProfileCmd.Parameters.AddWithValue("@bio", request.Bio);
+                updateProfileCmd.Parameters.AddWithValue("@updatedAt", now);
 
-                    var teacherId = Convert.ToInt32(createProfileCmd.ExecuteScalar());
+                var rowsAffected = updateProfileCmd.ExecuteNonQuery();
 
-                    return Ok(new { success = true, message = "Teacher profile created successfully", teacherId = teacherId });
+                if (rowsAffected > 0)
+                {
+                    return Ok(new { success = true, message = "Teacher profile updated successfully", teacherId = existingTeacherId });
+                }
+                else
+                {
+                    return BadRequest(new { success = false, error = "Failed to update teacher profile." });
+                }
             }
         }
 

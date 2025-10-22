@@ -74,20 +74,23 @@ function initInteractiveButtons() {
     });
 }
 
-// Add ripple animation CSS
-const rippleCSS = `
-@keyframes ripple {
-    to {
-        transform: scale(2);
-        opacity: 0;
+// Add ripple animation CSS (only if not already added)
+if (!document.querySelector('style[data-ripple-css]')) {
+    const rippleCSS = `
+    @keyframes ripple {
+        to {
+            transform: scale(2);
+            opacity: 0;
+        }
     }
-}
-`;
+    `;
 
-// Inject ripple CSS
-const style = document.createElement('style');
-style.textContent = rippleCSS;
-document.head.appendChild(style);
+    // Inject ripple CSS
+    const style = document.createElement('style');
+    style.setAttribute('data-ripple-css', 'true');
+    style.textContent = rippleCSS;
+    document.head.appendChild(style);
+}
 
 // Initialize everything when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
@@ -115,10 +118,41 @@ document.addEventListener('DOMContentLoaded', function() {
 
 const API_BASE_URL = 'http://localhost:5168/api';
 
+// Hash function that produces consistent results matching C#'s GetHashCode()
+function simpleHash(str) {
+    let hash = 0;
+    if (str.length === 0) return hash;
+    
+    for (let i = 0; i < str.length; i++) {
+        const char = str.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash | 0; // Convert to 32-bit signed integer
+    }
+    
+    return hash;
+}
+
+// Test function to verify hash consistency (can be removed in production)
+function testHashFunction() {
+    const testPassword = "password123";
+    const hash = simpleHash(testPassword);
+    console.log(`Hash of "${testPassword}": ${hash}`);
+    console.log(`Hash as string: "${hash.toString()}"`);
+    
+    // Test multiple times to ensure consistency
+    for (let i = 0; i < 5; i++) {
+        const testHash = simpleHash(testPassword);
+        console.log(`Test ${i + 1}: ${testHash}`);
+    }
+    
+    return hash;
+}
+
 // Authentication Functions
 async function performSignupAPI(firstName, lastName, email, password, accountType) {
     try {
         console.log('Attempting signup with:', { FirstName: firstName, LastName: lastName, Email: email, AccountType: accountType });
+        console.log('Password hash:', simpleHash(password));
         
         const response = await fetch(`${API_BASE_URL}/Auth/signup`, {
             method: 'POST',
@@ -127,7 +161,7 @@ async function performSignupAPI(firstName, lastName, email, password, accountTyp
                 FirstName: firstName, 
                 LastName: lastName, 
                 Email: email, 
-                Password: password, 
+                Password: simpleHash(password).toString(), 
                 AccountType: accountType 
             })
         });
@@ -153,11 +187,12 @@ async function performSignupAPI(firstName, lastName, email, password, accountTyp
 async function performLoginAPI(email, password) {
     try {
         console.log('Attempting login with:', { Email: email });
+        console.log('Password hash:', simpleHash(password));
         
         const response = await fetch(`${API_BASE_URL}/Auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ Email: email, Password: password })
+            body: JSON.stringify({ Email: email, Password: simpleHash(password).toString() })
         });
 
         console.log('Login response status:', response.status);
@@ -185,6 +220,15 @@ async function logoutUserAPI() {
         console.error('Logout error:', error);
         return { success: false, error: error.message };
     }
+}
+
+// Wrapper functions for backward compatibility
+async function performSignup(firstName, lastName, email, password, accountType) {
+    return await performSignupAPI(firstName, lastName, email, password, accountType);
+}
+
+async function performLogin(email, password) {
+    return await performLoginAPI(email, password);
 }
 
 // Notification System
@@ -306,9 +350,9 @@ window.handleLogin = async function() {
     const result = await performLogin(email, password);
     
     if (result.success) {
-        localStorage.setItem('userEmail', email);
-        localStorage.setItem('userName', result.userName);
-        localStorage.setItem('accountType', result.accountType);
+        sessionStorage.setItem('userEmail', email);
+        sessionStorage.setItem('userName', result.userName);
+        sessionStorage.setItem('accountType', result.accountType);
         
         showBottomCornerNotification(`Welcome back, ${result.userName}!`, 'success');
         bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
@@ -330,10 +374,10 @@ window.logoutUser = async function() {
     
     if (result.success) {
         // Clear local storage
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userName');
-        localStorage.removeItem('accountType');
+        sessionStorage.removeItem('userEmail');
+        sessionStorage.removeItem('userEmail');
+        sessionStorage.removeItem('userName');
+        sessionStorage.removeItem('accountType');
         
         showBottomCornerNotification('You have been logged out successfully.', 'success');
         
@@ -363,9 +407,9 @@ function updateAuthUI() {
 }
 
 function updateAuthUIInternal() {
-    const userEmail = localStorage.getItem('userEmail');
-    const userName = localStorage.getItem('userName');
-    const accountType = localStorage.getItem('accountType');
+    const userEmail = sessionStorage.getItem('userEmail');
+    const userName = sessionStorage.getItem('userName');
+    const accountType = sessionStorage.getItem('accountType');
     
     const loginSignupButtons = document.getElementById('loginSignupButtons');
     const userInfo = document.getElementById('userInfo');
@@ -431,7 +475,7 @@ function updateAuthUIInternal() {
 // Student Dashboard API Functions
 async function getAvailableTeachers(instrument = '') {
     try {
-        const userEmail = localStorage.getItem('userEmail');
+        const userEmail = sessionStorage.getItem('userEmail');
         if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
@@ -442,7 +486,7 @@ async function getAvailableTeachers(instrument = '') {
         const response = await fetch(`${API_BASE_URL}/Auth/teachers/list`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userEmail, instrument })
+            body: JSON.stringify({ Instrument: instrument })
         });
 
         console.log('API response status:', response.status);
@@ -465,15 +509,17 @@ async function getAvailableTeachers(instrument = '') {
 
 async function getTeacherSchedule(teacherId) {
     try {
-        const userEmail = localStorage.getItem('userEmail');
+        const userEmail = sessionStorage.getItem('userEmail');
         if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
 
-        const response = await fetch(`${API_BASE_URL}/Auth/teacher-availability/get`, {
+        console.log('Getting teacher schedule for teacherId:', teacherId, 'type:', typeof teacherId);
+        
+        const response = await fetch(`${API_BASE_URL}/Auth/teacher-schedule/get`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userEmail, teacherId })
+            body: JSON.stringify({ TeacherId: teacherId.toString() })
         });
 
         if (!response.ok) {
@@ -481,6 +527,7 @@ async function getTeacherSchedule(teacherId) {
         }
 
         const result = await response.json();
+        console.log('Teacher schedule API response:', result);
         return result;
     } catch (error) {
         console.error('Get teacher schedule error:', error);
@@ -488,31 +535,33 @@ async function getTeacherSchedule(teacherId) {
     }
 }
 
-async function bookLesson(teacherId, instrument, lessonDate, lessonTime, lessonType) {
+async function bookLesson(teacherEmail, lessonDate) {
     try {
-        const userEmail = localStorage.getItem('userEmail');
+        const userEmail = sessionStorage.getItem('userEmail');
         if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
+
+        console.log('Booking lesson:', { StudentEmail: userEmail, TeacherEmail: teacherEmail, Day: lessonDate });
 
         const response = await fetch(`${API_BASE_URL}/Auth/student-studying/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                userEmail, 
-                teacherId, 
-                instrument, 
-                lessonDate, 
-                lessonTime, 
-                lessonType 
+                StudentEmail: userEmail, 
+                TeacherEmail: teacherEmail, 
+                Day: lessonDate
             })
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorText = await response.text();
+            console.error('Booking API error:', errorText);
+            throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
         }
 
         const result = await response.json();
+        console.log('Booking result:', result);
         return result;
     } catch (error) {
         console.error('Book lesson error:', error);
@@ -522,7 +571,7 @@ async function bookLesson(teacherId, instrument, lessonDate, lessonTime, lessonT
 
 async function getStudentLessons() {
     try {
-        const userEmail = localStorage.getItem('userEmail');
+        const userEmail = sessionStorage.getItem('userEmail');
         if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
@@ -530,7 +579,7 @@ async function getStudentLessons() {
         const response = await fetch(`${API_BASE_URL}/Auth/student-studying/get`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userEmail })
+            body: JSON.stringify({ StudentEmail: userEmail })
         });
 
         if (!response.ok) {
@@ -548,7 +597,7 @@ async function getStudentLessons() {
 // Teacher Dashboard API Functions
 async function getTeacherProfile() {
     try {
-        const userEmail = localStorage.getItem('userEmail');
+        const userEmail = sessionStorage.getItem('userEmail');
         if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
@@ -556,7 +605,7 @@ async function getTeacherProfile() {
         const response = await fetch(`${API_BASE_URL}/Auth/teacher-profile/get`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userEmail })
+            body: JSON.stringify({ Email: userEmail })
         });
 
         if (!response.ok) {
@@ -573,7 +622,7 @@ async function getTeacherProfile() {
 
 async function createTeacherProfile(profileData) {
     try {
-        const userEmail = localStorage.getItem('userEmail');
+        const userEmail = sessionStorage.getItem('userEmail');
         if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
@@ -582,13 +631,12 @@ async function createTeacherProfile(profileData) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                userEmail, 
-                name: profileData.name,
-                instrument: profileData.instrument,
-                bio: profileData.bio,
-                email: profileData.email,
-                classFull: profileData.classFull,
-                classLimit: profileData.classLimit,
+                Email: userEmail, 
+                Name: profileData.name,
+                Instrument: profileData.instrument,
+                Bio: profileData.bio,
+                ClassFull: profileData.classFull,
+                ClassLimit: profileData.classLimit,
             })
         });
 
@@ -606,7 +654,7 @@ async function createTeacherProfile(profileData) {
 
 async function updateTeacherProfileAPI(profileData) {
     try {
-        const userEmail = localStorage.getItem('userEmail');
+        const userEmail = sessionStorage.getItem('userEmail');
         if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
@@ -615,13 +663,12 @@ async function updateTeacherProfileAPI(profileData) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
-                userEmail, 
-                name: profileData.name,
-                instrument: profileData.instrument,
-                bio: profileData.bio,
-                email: profileData.email,
-                classFull: profileData.classFull,
-                classLimit: profileData.classLimit,
+                Email: userEmail, 
+                Name: profileData.name,
+                Instrument: profileData.instrument,
+                Bio: profileData.bio,
+                ClassFull: profileData.classFull,
+                ClassLimit: profileData.classLimit,
             })
         });
 
@@ -639,7 +686,7 @@ async function updateTeacherProfileAPI(profileData) {
 
 async function addTeacherAvailabilityAPI(day, startTime, endTime) {
     try {
-        const userEmail = localStorage.getItem('userEmail');
+        const userEmail = sessionStorage.getItem('userEmail');
         if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
@@ -647,7 +694,7 @@ async function addTeacherAvailabilityAPI(day, startTime, endTime) {
         const response = await fetch(`${API_BASE_URL}/Auth/teacher-availability/add`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userEmail, day, startTime, endTime })
+            body: JSON.stringify({ Email: userEmail, Day: day, StartTime: startTime, EndTime: endTime })
         });
 
         if (!response.ok) {
@@ -664,7 +711,7 @@ async function addTeacherAvailabilityAPI(day, startTime, endTime) {
 
 async function getTeacherAvailability() {
     try {
-        const userEmail = localStorage.getItem('userEmail');
+        const userEmail = sessionStorage.getItem('userEmail');
         if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
@@ -672,7 +719,7 @@ async function getTeacherAvailability() {
         const response = await fetch(`${API_BASE_URL}/Auth/teacher-availability/get`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userEmail })
+            body: JSON.stringify({ Email: userEmail })
         });
 
         if (!response.ok) {
@@ -689,7 +736,7 @@ async function getTeacherAvailability() {
 
 async function setTeacherAvailability(availability) {
     try {
-        const userEmail = localStorage.getItem('userEmail');
+        const userEmail = sessionStorage.getItem('userEmail');
         if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
@@ -697,7 +744,7 @@ async function setTeacherAvailability(availability) {
         const response = await fetch(`${API_BASE_URL}/Auth/teacher-availability/set`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userEmail, availability })
+            body: JSON.stringify({ Email: userEmail, Availability: availability })
         });
 
         if (!response.ok) {
@@ -714,7 +761,7 @@ async function setTeacherAvailability(availability) {
 
 async function getTeacherLessons() {
     try {
-        const userEmail = localStorage.getItem('userEmail');
+        const userEmail = sessionStorage.getItem('userEmail');
         if (!userEmail) {
             return { success: false, error: 'No active session. Please login again.' };
         }
@@ -722,7 +769,7 @@ async function getTeacherLessons() {
         const response = await fetch(`${API_BASE_URL}/Auth/student-studying/get`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userEmail })
+            body: JSON.stringify({ StudentEmail: userEmail })
         });
 
         if (!response.ok) {
@@ -743,8 +790,8 @@ window.loadStudentDashboard = async function() {
     if (!container) return;
 
     // Check if user is logged in
-    const userEmail = localStorage.getItem('userEmail');
-    const accountType = localStorage.getItem('accountType');
+    const userEmail = sessionStorage.getItem('userEmail');
+    const accountType = sessionStorage.getItem('accountType');
     
     if (!userEmail) {
         container.innerHTML = `
@@ -892,8 +939,9 @@ window.viewTeacherSchedule = async function(teacherId, teacherName) {
     teachersList.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Loading teacher availability...</p></div>';
     
     const result = await getTeacherSchedule(teacherId);
+    console.log('viewTeacherSchedule result:', result);
     
-    if (result.success && result.availability && result.availability.length > 0) {
+    if (result.success && result.schedule && result.schedule.length > 0) {
         // Create a comprehensive availability view
         const availabilityHtml = `
             <div class="mb-3">
@@ -907,16 +955,16 @@ window.viewTeacherSchedule = async function(teacherId, teacherName) {
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        ${result.availability.map(slot => `
+                        ${result.schedule.map(slot => `
                             <div class="col-md-6 col-lg-4 mb-3">
                                 <div class="card border-success">
                                     <div class="card-body text-center">
-                                        <h6 class="card-title text-success">${slot.dayOfWeek}</h6>
+                                        <h6 class="card-title text-success">${slot.day}</h6>
                                         <p class="card-text">
                                             <i class="fas fa-clock me-1"></i>
                                             ${slot.startTime} - ${slot.endTime}
                                         </p>
-                                        <button class="btn btn-success btn-sm" onclick="bookLessonSlot(${teacherId}, '${teacherName}', '${slot.dayOfWeek}', '${slot.startTime}', '${slot.endTime}')">
+                                        <button class="btn btn-success btn-sm" onclick="bookLessonSlot(${teacherId}, '${teacherName}', '${slot.day}', '${slot.startTime}', '${slot.endTime}')">
                                             <i class="fas fa-bookmark me-1"></i>Book This Slot
                                         </button>
                                     </div>
@@ -941,10 +989,43 @@ window.viewTeacherSchedule = async function(teacherId, teacherName) {
 };
 
 window.bookLessonSlot = async function(teacherId, teacherName, dayOfWeek, startTime, endTime) {
-    // Create a booking modal
+    // Get teacher's email from the teachers list
+    const teachersResult = await getAvailableTeachers();
+    if (!teachersResult.success || !teachersResult.teachers) {
+        showNotification('Unable to load teacher information.', 'error');
+        return;
+    }
+    
+    const teacher = teachersResult.teachers.find(t => t.userId == teacherId);
+    if (!teacher) {
+        showNotification('Teacher not found.', 'error');
+        return;
+    }
+    
+    // Get teacher's schedule to determine available days
+    const scheduleResult = await getTeacherSchedule(teacherId);
+    
+    if (!scheduleResult.success || !scheduleResult.schedule) {
+        showNotification('Unable to load teacher schedule.', 'error');
+        return;
+    }
+    
+    // Find the specific time slot
+    const timeSlot = scheduleResult.schedule.find(slot => 
+        slot.day === dayOfWeek && 
+        slot.startTime === startTime && 
+        slot.endTime === endTime
+    );
+    
+    if (!timeSlot) {
+        showNotification('This time slot is no longer available.', 'error');
+        return;
+    }
+    
+    // Create a booking modal with calendar
     const modalHtml = `
         <div class="modal fade" id="bookingModal" tabindex="-1">
-            <div class="modal-dialog">
+            <div class="modal-dialog modal-lg">
                 <div class="modal-content">
                     <div class="modal-header">
                         <h5 class="modal-title">Book Lesson with ${teacherName}</h5>
@@ -954,36 +1035,16 @@ window.bookLessonSlot = async function(teacherId, teacherName, dayOfWeek, startT
                         <div class="alert alert-info">
                             <strong>Time Slot:</strong> ${dayOfWeek}, ${startTime} - ${endTime}
                         </div>
+                        
                         <div class="mb-3">
-                            <label class="form-label">Lesson Date</label>
-                            <input type="date" id="lessonDate" class="form-control" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Instrument</label>
-                            <select id="lessonInstrument" class="form-select" required>
-                                <option value="">Select Instrument</option>
-                                <option value="Piano">Piano</option>
-                                <option value="Guitar">Guitar</option>
-                                <option value="Violin">Violin</option>
-                                <option value="Drums">Drums</option>
-                                <option value="Bass">Bass</option>
-                                <option value="Saxophone">Saxophone</option>
-                                <option value="Flute">Flute</option>
-                                <option value="Voice">Voice</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Lesson Type</label>
-                            <select id="lessonType" class="form-select" required>
-                                <option value="">Select Type</option>
-                                <option value="Virtual">Virtual</option>
-                                <option value="In-Person">In-Person</option>
-                            </select>
+                            <label class="form-label">Select Date</label>
+                            <div id="lessonCalendar" class="calendar-container"></div>
+                            <input type="hidden" id="selectedDate" />
                         </div>
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="button" class="btn btn-primary" onclick="confirmBooking(${teacherId}, '${teacherName}', '${dayOfWeek}', '${startTime}', '${endTime}')">
+                        <button type="button" class="btn btn-primary" onclick="confirmBooking('${teacher.email}', '${teacherName}', '${dayOfWeek}', '${startTime}', '${endTime}')">
                             <i class="fas fa-bookmark me-1"></i>Book Lesson
                         </button>
                     </div>
@@ -1005,18 +1066,115 @@ window.bookLessonSlot = async function(teacherId, teacherName, dayOfWeek, startT
     const modal = new bootstrap.Modal(document.getElementById('bookingModal'));
     modal.show();
     
-    // Set minimum date to today
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('lessonDate').min = today;
+    // Generate calendar with only available days
+    generateLessonCalendar(dayOfWeek, startTime, endTime);
 };
 
-window.confirmBooking = async function(teacherId, teacherName, dayOfWeek, startTime, endTime) {
-    const lessonDate = document.getElementById('lessonDate').value;
-    const instrument = document.getElementById('lessonInstrument').value;
-    const lessonType = document.getElementById('lessonType').value;
+// Function to generate calendar with only available days
+function generateLessonCalendar(dayOfWeek, startTime, endTime) {
+    const calendarContainer = document.getElementById('lessonCalendar');
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
     
-    if (!lessonDate || !instrument || !lessonType) {
-        showNotification('Please fill in all fields.', 'warning');
+    // Get day of week number (0 = Sunday, 1 = Monday, etc.)
+    const dayMap = {
+        'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3,
+        'Thursday': 4, 'Friday': 5, 'Saturday': 6
+    };
+    const targetDayOfWeek = dayMap[dayOfWeek];
+    
+    // Generate calendar for next 3 months
+    let calendarHtml = '<div class="calendar">';
+    
+    for (let monthOffset = 0; monthOffset < 3; monthOffset++) {
+        const month = new Date(currentYear, currentMonth + monthOffset, 1);
+        const monthName = month.toLocaleString('default', { month: 'long', year: 'numeric' });
+        
+        calendarHtml += `
+            <div class="calendar-month mb-4">
+                <h6 class="text-center mb-3">${monthName}</h6>
+                <div class="calendar-grid">
+                    <div class="calendar-header">
+                        <div class="calendar-day-header">Sun</div>
+                        <div class="calendar-day-header">Mon</div>
+                        <div class="calendar-day-header">Tue</div>
+                        <div class="calendar-day-header">Wed</div>
+                        <div class="calendar-day-header">Thu</div>
+                        <div class="calendar-day-header">Fri</div>
+                        <div class="calendar-day-header">Sat</div>
+                    </div>
+                    <div class="calendar-body">
+        `;
+        
+        // Get first day of month and number of days
+        const firstDay = month.getDay();
+        const daysInMonth = new Date(currentYear, currentMonth + monthOffset + 1, 0).getDate();
+        
+        // Add empty cells for days before month starts
+        for (let i = 0; i < firstDay; i++) {
+            calendarHtml += '<div class="calendar-day empty"></div>';
+        }
+        
+        // Add days of month
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date = new Date(currentYear, currentMonth + monthOffset, day);
+            const dayOfWeekNum = date.getDay();
+            const isPast = date < today;
+            const isTargetDay = dayOfWeekNum === targetDayOfWeek;
+            const isAvailable = isTargetDay && !isPast;
+            
+            const dateString = date.toISOString().split('T')[0];
+            
+            calendarHtml += `
+                <div class="calendar-day ${isAvailable ? 'available' : 'unavailable'} ${isPast ? 'past' : ''}" 
+                     ${isAvailable ? `onclick="selectDate('${dateString}')"` : ''}>
+                    ${day}
+                </div>
+            `;
+        }
+        
+        calendarHtml += `
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    
+    calendarHtml += '</div>';
+    calendarContainer.innerHTML = calendarHtml;
+}
+
+// Function to select a date
+window.selectDate = function(dateString) {
+    // Remove previous selection
+    document.querySelectorAll('.calendar-day.selected').forEach(day => {
+        day.classList.remove('selected');
+    });
+    
+    // Add selection to clicked day
+    event.target.classList.add('selected');
+    
+    // Store selected date
+    document.getElementById('selectedDate').value = dateString;
+    
+    // Show confirmation
+    const date = new Date(dateString);
+    const formattedDate = date.toLocaleDateString('en-US', { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
+    
+    showNotification(`Selected: ${formattedDate}`, 'success');
+};
+
+window.confirmBooking = async function(teacherEmail, teacherName, dayOfWeek, startTime, endTime) {
+    const lessonDate = document.getElementById('selectedDate').value;
+    
+    if (!lessonDate) {
+        showNotification('Please select a date for your lesson.', 'warning');
         return;
     }
     
@@ -1027,7 +1185,7 @@ window.confirmBooking = async function(teacherId, teacherName, dayOfWeek, startT
         return;
     }
     
-    const result = await bookLesson(teacherId, instrument, lessonDate, startTime, lessonType);
+    const result = await bookLesson(teacherEmail, lessonDate);
     
     if (result.success) {
         showNotification(`Lesson booked successfully with ${teacherName}!`, 'success');
@@ -1091,8 +1249,8 @@ window.loadTeacherDashboard = async function() {
     if (!container) return;
 
     // Check if user is logged in
-    const userEmail = localStorage.getItem('userEmail');
-    const accountType = localStorage.getItem('accountType');
+    const userEmail = sessionStorage.getItem('userEmail');
+    const accountType = sessionStorage.getItem('accountType');
     
     if (!userEmail) {
         container.innerHTML = `
@@ -1145,6 +1303,20 @@ function showTeacherOnboardingForm() {
     
     if (onboardingDiv) onboardingDiv.classList.remove('d-none');
     if (dashboardDiv) dashboardDiv.classList.add('d-none');
+    
+    // Auto-fill name and email from session storage
+    const userName = sessionStorage.getItem('userName');
+    const userEmail = sessionStorage.getItem('userEmail');
+    
+    if (userName) {
+        const nameInput = document.getElementById('teacherName');
+        if (nameInput) nameInput.value = userName;
+    }
+    
+    if (userEmail) {
+        const emailInput = document.getElementById('teacherEmail');
+        if (emailInput) emailInput.value = userEmail;
+    }
     
     // Add form submission handler
     const form = document.getElementById('teacherOnboardingForm');
@@ -2515,10 +2687,10 @@ window.performLogin = async function() {
         const result = await performLoginAPI(email, password);
         
         if (result.success) {
-            localStorage.setItem('userEmail', result.userEmail);
-            localStorage.setItem('userEmail', email);
-            localStorage.setItem('userName', `${result.user.firstName} ${result.user.lastName}`);
-            localStorage.setItem('accountType', result.user.accountType);
+            sessionStorage.setItem('userEmail', result.userEmail);
+            sessionStorage.setItem('userEmail', email);
+            sessionStorage.setItem('userName', `${result.user.firstName} ${result.user.lastName}`);
+            sessionStorage.setItem('accountType', result.user.accountType);
             
             showBottomCornerNotification(`Welcome back, ${result.user.firstName}!`, 'success');
             
