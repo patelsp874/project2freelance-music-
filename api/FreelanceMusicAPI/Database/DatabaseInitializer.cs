@@ -33,7 +33,7 @@ namespace FreelanceMusicAPI.Database
                                 student_email TEXT NOT NULL UNIQUE,
                                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                                studentpassword INTEGER UNIQUE
+                                studentpassword TEXT
                             );");
 
                         // Create Teacher Table
@@ -42,6 +42,7 @@ namespace FreelanceMusicAPI.Database
                                 teacher_id INTEGER PRIMARY KEY AUTOINCREMENT,
                                 teacher_name TEXT NOT NULL,
                                 teacher_email TEXT NOT NULL UNIQUE,
+                                teacher_password TEXT,
                                 instrument TEXT NOT NULL,
                                 class_full INTEGER DEFAULT 0 CHECK (class_full IN (0, 1)),
                                 class_limit INTEGER DEFAULT 10,

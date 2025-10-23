@@ -17,7 +17,7 @@ CREATE TABLE Student (
     student_email TEXT NOT NULL UNIQUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    studentpassword INTEGER UNIQUE
+    studentpassword TEXT
 );
 
 -- Create Teacher Table
@@ -30,6 +30,7 @@ CREATE TABLE Teacher (
     class_limit INTEGER DEFAULT 10,
     current_class INTEGER DEFAULT 0,
     bio TEXT,
+    teacher_password TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
