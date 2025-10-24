@@ -100,6 +100,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize interactive elements
     initInteractiveButtons();
     
+    // Initialize payment modal
+    initializePaymentModal();
+    
     // Animate counters when hero section is visible
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -118,41 +121,199 @@ document.addEventListener('DOMContentLoaded', function() {
 
 const API_BASE_URL = 'http://localhost:5168/api';
 
-// Hash function that produces consistent results matching C#'s GetHashCode()
-function simpleHash(str) {
-    let hash = 0;
-    if (str.length === 0) return hash;
+// Password hashing is now handled by the backend using BCrypt
+
+// Test function removed - password hashing now handled by backend
+
+// Payment functionality
+let currentPaymentData = null;
+
+// Initialize payment modal
+function initializePaymentModal() {
+    // Populate expiry year dropdown
+    const currentYear = new Date().getFullYear();
+    const expiryYearSelect = document.getElementById('expiryYear');
     
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash | 0; // Convert to 32-bit signed integer
+    for (let year = currentYear; year <= currentYear + 10; year++) {
+        const option = document.createElement('option');
+        option.value = year;
+        option.textContent = year;
+        expiryYearSelect.appendChild(option);
     }
     
-    return hash;
+    // Format card number input
+    const cardNumberInput = document.getElementById('cardNumber');
+    cardNumberInput.addEventListener('input', function(e) {
+        let value = e.target.value.replace(/\s/g, '').replace(/[^0-9]/gi, '');
+        let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
+        e.target.value = formattedValue;
+    });
+    
+    // Format CVV input
+    const cvvInput = document.getElementById('cvv');
+    cvvInput.addEventListener('input', function(e) {
+        e.target.value = e.target.value.replace(/[^0-9]/gi, '');
+    });
 }
 
-// Test function to verify hash consistency (can be removed in production)
-function testHashFunction() {
-    const testPassword = "password123";
-    const hash = simpleHash(testPassword);
-    console.log(`Hash of "${testPassword}": ${hash}`);
-    console.log(`Hash as string: "${hash.toString()}"`);
+// Show payment modal
+function showPaymentModal(teacherData, lessonDay) {
+    currentPaymentData = {
+        teacherEmail: teacherData.email,
+        teacherName: teacherData.name,
+        instrument: teacherData.instrument,
+        lessonDay: lessonDay,
+        amount: 50.00 // Default lesson fee
+    };
     
-    // Test multiple times to ensure consistency
-    for (let i = 0; i < 5; i++) {
-        const testHash = simpleHash(testPassword);
-        console.log(`Test ${i + 1}: ${testHash}`);
+    // Update payment summary
+    document.getElementById('paymentTeacherName').textContent = teacherData.name;
+    document.getElementById('paymentInstrument').textContent = teacherData.instrument;
+    document.getElementById('paymentLessonDay').textContent = lessonDay;
+    document.getElementById('paymentAmount').textContent = `$${currentPaymentData.amount.toFixed(2)}`;
+    
+    // Calculate processing fee (2.9% + $0.30)
+    const processingFee = (currentPaymentData.amount * 0.029) + 0.30;
+    document.getElementById('paymentProcessingFee').textContent = `$${processingFee.toFixed(2)}`;
+    
+    // Calculate total
+    const total = currentPaymentData.amount + processingFee;
+    document.getElementById('paymentTotal').textContent = `$${total.toFixed(2)}`;
+    
+    // Populate expiry year dropdown
+    populateExpiryYears('expiryYear');
+    
+    // Show modal
+    const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'));
+    paymentModal.show();
+}
+
+// Process payment
+async function processPayment() {
+    console.log('processPayment called');
+    console.log('currentPaymentData:', currentPaymentData);
+    
+    if (!currentPaymentData) {
+        showNotification('Payment error: No payment data found.', 'danger');
+        return;
     }
     
-    return hash;
+    // Validate form
+    const cardNumber = document.getElementById('cardNumber').value.replace(/\s/g, '');
+    const cardholderName = document.getElementById('cardholderName').value;
+    const expiryMonth = document.getElementById('expiryMonth').value;
+    const expiryYear = document.getElementById('expiryYear').value;
+    const cvv = document.getElementById('cvv').value;
+    const paymentMethod = document.getElementById('paymentMethod').value;
+    
+    if (!cardNumber || !cardholderName || !expiryMonth || !expiryYear || !cvv || !paymentMethod) {
+        showNotification('Please fill in all payment fields.', 'warning');
+        return;
+    }
+    
+    if (cardNumber.length < 13) {
+        showNotification('Please enter a valid card number.', 'warning');
+        return;
+    }
+    
+    if (cvv.length < 3) {
+        showNotification('Please enter a valid CVV.', 'warning');
+        return;
+    }
+    
+    // Show loading state
+    const payButton = document.querySelector('#paymentModal .btn-success');
+    const originalText = payButton.innerHTML;
+    payButton.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing...';
+    payButton.disabled = true;
+    
+    try {
+        // Get user email from session storage
+        const userEmail = sessionStorage.getItem('userEmail');
+        if (!userEmail) {
+            showNotification('No active session. Please login again.', 'danger');
+            return;
+        }
+
+        // Process payment
+        const response = await fetch(`${API_BASE_URL}/Auth/payment/process`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                StudentEmail: userEmail,
+                TeacherEmail: currentPaymentData.teacherEmail,
+                CardNumber: cardNumber,
+                ExpiryMonth: expiryMonth,
+                ExpiryYear: expiryYear,
+                CVV: cvv,
+                CardholderName: cardholderName
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Payment successful - now book the lesson
+            const bookingResult = await bookLessonAfterPayment(userEmail, currentPaymentData.teacherEmail, currentPaymentData.lessonDay);
+            
+            if (bookingResult.success) {
+                // Close payment modal
+                const paymentModal = bootstrap.Modal.getInstance(document.getElementById('paymentModal'));
+                paymentModal.hide();
+                
+                // Show success message
+                showNotification(`Payment successful! Transaction ID: ${result.transactionId}`, 'success');
+                
+                // Refresh lessons if on student dashboard
+                const currentPage = document.querySelector('.page.active')?.id;
+                if (currentPage === 'student-dashboard') {
+                    loadStudentLessons();
+                } else if (currentPage === 'teacher-dashboard') {
+                    // Refresh teacher statistics and lessons
+                    await loadTeacherStatistics();
+                    await loadTeacherLessons();
+                }
+            } else {
+                showNotification(`Payment processed but booking failed: ${bookingResult.error}`, 'warning');
+            }
+        } else {
+            showNotification(`Payment failed: ${result.error}`, 'danger');
+        }
+    } catch (error) {
+        console.error('Payment error:', error);
+        showNotification('Payment processing failed. Please try again.', 'danger');
+    } finally {
+        // Reset button state
+        payButton.innerHTML = originalText;
+        payButton.disabled = false;
+    }
+}
+
+// Book lesson (existing function, but now called after payment)
+async function bookLessonAfterPayment(studentEmail, teacherEmail, lessonDay) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/Auth/student-studying/add`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                StudentEmail: studentEmail, 
+                TeacherEmail: teacherEmail, 
+                Day: lessonDay 
+            })
+        });
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Booking error:', error);
+        return { success: false, error: error.message };
+    }
 }
 
 // Authentication Functions
 async function performSignupAPI(firstName, lastName, email, password, accountType) {
     try {
         console.log('Attempting signup with:', { FirstName: firstName, LastName: lastName, Email: email, AccountType: accountType });
-        console.log('Password hash:', simpleHash(password));
         
         const response = await fetch(`${API_BASE_URL}/Auth/signup`, {
             method: 'POST',
@@ -161,7 +322,7 @@ async function performSignupAPI(firstName, lastName, email, password, accountTyp
                 FirstName: firstName, 
                 LastName: lastName, 
                 Email: email, 
-                Password: simpleHash(password).toString(), 
+                Password: password, 
                 AccountType: accountType 
             })
         });
@@ -187,12 +348,11 @@ async function performSignupAPI(firstName, lastName, email, password, accountTyp
 async function performLoginAPI(email, password) {
     try {
         console.log('Attempting login with:', { Email: email });
-        console.log('Password hash:', simpleHash(password));
         
         const response = await fetch(`${API_BASE_URL}/Auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ Email: email, Password: simpleHash(password).toString() })
+            body: JSON.stringify({ Email: email, Password: password })
         });
 
         console.log('Login response status:', response.status);
@@ -410,6 +570,7 @@ function updateAuthUIInternal() {
     const userEmail = sessionStorage.getItem('userEmail');
     const userName = sessionStorage.getItem('userName');
     const accountType = sessionStorage.getItem('accountType');
+    const userRole = sessionStorage.getItem('userRole');
     
     const loginSignupButtons = document.getElementById('loginSignupButtons');
     const userInfo = document.getElementById('userInfo');
@@ -419,7 +580,7 @@ function updateAuthUIInternal() {
     const teacherDashboardLink = document.getElementById('teacherDashboardLink');
     const adminDashboardLink = document.getElementById('adminDashboardLink');
     
-    console.log('updateAuthUI called:', { userEmail, userName, accountType, loginSignupButtons, userInfo });
+    console.log('updateAuthUI called:', { userEmail, userName, accountType, userRole, loginSignupButtons, userInfo });
     
     if (userEmail && userName) {
         // User is logged in
@@ -431,21 +592,22 @@ function updateAuthUIInternal() {
             userInfo.classList.remove('d-none');
             userInfo.innerHTML = `
                 <span class="text-primary me-3">
-                    Welcome, ${userName} (${accountType})
+                    Welcome, ${userName} (${userRole || accountType})
                 </span>
                 <button id="logoutBtn" class="btn btn-outline btn-sm" onclick="logoutUser()">Logout</button>
             `;
         }
         
         // Show only the dashboard for the user's role
-        if (accountType) {
+        const role = userRole || accountType;
+        if (role) {
             // Hide all dashboard links first
             if (studentDashboardLink) studentDashboardLink.classList.add('d-none');
             if (teacherDashboardLink) teacherDashboardLink.classList.add('d-none');
             if (adminDashboardLink) adminDashboardLink.classList.add('d-none');
             
             // Show only the appropriate dashboard based on role
-            switch (accountType.toLowerCase()) {
+            switch (role.toLowerCase()) {
                 case 'student':
                     if (studentDashboardLink) studentDashboardLink.classList.remove('d-none');
                     break;
@@ -456,7 +618,7 @@ function updateAuthUIInternal() {
                     if (adminDashboardLink) adminDashboardLink.classList.remove('d-none');
                     break;
                 default:
-                    console.warn('Unknown account type:', accountType);
+                    console.warn('Unknown role:', role);
             }
         }
     } else {
@@ -766,10 +928,10 @@ async function getTeacherLessons() {
             return { success: false, error: 'No active session. Please login again.' };
         }
 
-        const response = await fetch(`${API_BASE_URL}/Auth/student-studying/get`, {
+        const response = await fetch(`${API_BASE_URL}/Auth/teacher-students/get`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ StudentEmail: userEmail })
+            body: JSON.stringify({ TeacherEmail: userEmail })
         });
 
         if (!response.ok) {
@@ -879,19 +1041,8 @@ window.loadStudentDashboard = async function() {
                 </div>
             </div>
 
-            <!-- My Lessons -->
-            <div class="card">
-                <div class="card-header">
-                    <h5><i class="fas fa-calendar-check me-2"></i>My Lessons</h5>
-                </div>
-                <div class="card-body">
-                    <div id="studentLessons">Loading your lessons...</div>
-                </div>
-            </div>
         </div>
     `;
-
-    await loadStudentLessons();
 };
 
 window.loadAvailableTeachers = async function() {
@@ -1185,16 +1336,27 @@ window.confirmBooking = async function(teacherEmail, teacherName, dayOfWeek, sta
         return;
     }
     
-    const result = await bookLesson(teacherEmail, lessonDate);
-    
-    if (result.success) {
-        showNotification(`Lesson booked successfully with ${teacherName}!`, 'success');
-        bootstrap.Modal.getInstance(document.getElementById('bookingModal')).hide();
-        await loadStudentLessons(); // Refresh lessons
-        await loadAvailableTeachers(); // Go back to teachers list
-    } else {
-        showNotification(result.error || 'Failed to book lesson. Please try again.', 'danger');
+    // Close the booking modal first
+    const bookingModal = bootstrap.Modal.getInstance(document.getElementById('bookingModal'));
+    if (bookingModal) {
+        bookingModal.hide();
     }
+    
+    // Get teacher data for payment
+    const teachersResult = await getAvailableTeachers();
+    if (!teachersResult.success || !teachersResult.teachers) {
+        showNotification('Unable to load teacher information.', 'error');
+        return;
+    }
+    
+    const teacher = teachersResult.teachers.find(t => t.email === teacherEmail);
+    if (!teacher) {
+        showNotification('Teacher not found.', 'error');
+        return;
+    }
+    
+    // Show payment modal
+    showPaymentModal(teacher, dayOfWeek);
 };
 
 async function loadStudentLessons() {
@@ -1222,10 +1384,10 @@ async function loadStudentLessons() {
                             <tr>
                                 <td><strong>${lesson.teacherName || 'N/A'}</strong></td>
                                 <td><span class="badge bg-secondary">${lesson.instrument}</span></td>
-                                <td>${lesson.lessonDate}</td>
-                                <td>${lesson.lessonTime}</td>
-                                <td><span class="badge ${lesson.lessonType === 'Virtual' ? 'bg-info' : 'bg-warning'}">${lesson.lessonType}</span></td>
-                                <td><span class="badge bg-success">${lesson.status}</span></td>
+                                <td>${lesson.day}</td>
+                                <td>Weekly</td>
+                                <td><span class="badge bg-info">In-Person</span></td>
+                                <td><span class="badge bg-success">Confirmed</span></td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -1379,26 +1541,265 @@ async function loadTeacherDashboardData() {
         if (profileResult.success && profileResult.profile) {
             const profile = profileResult.profile;
             
-            // Update dashboard stats (placeholder data for now)
-            document.getElementById('totalStudents').textContent = '0';
-            document.getElementById('weeklyLessons').textContent = '0';
-            document.getElementById('monthlyEarnings').textContent = '$0';
-            document.getElementById('teacherRating').textContent = '5.0';
+            // Load teacher statistics
+            await loadTeacherStatistics();
             
-            // Load upcoming lessons (placeholder for now)
-            const upcomingLessonsDiv = document.getElementById('upcomingLessons');
-            if (upcomingLessonsDiv) {
-                upcomingLessonsDiv.innerHTML = `
-                    <div class="text-center py-4">
-                        <i class="fas fa-calendar-times fa-3x text-muted mb-3"></i>
-                        <h6 class="text-muted">No upcoming lessons</h6>
-                        <p class="text-muted">Students will be able to book lessons once you set your availability.</p>
-                </div>
-                `;
-            }
+            // Load upcoming lessons
+            await loadTeacherLessons();
         }
     } catch (error) {
         console.error('Error loading teacher dashboard data:', error);
+    }
+}
+
+async function loadTeacherStatistics() {
+    try {
+        const userEmail = sessionStorage.getItem('userEmail');
+        if (!userEmail) return;
+
+        // Get teacher lessons data
+        const lessonsResult = await getTeacherLessons();
+        console.log('Teacher lessons result:', lessonsResult);
+        
+        if (!lessonsResult.success || !lessonsResult.lessons) {
+            console.log('No lessons data found, setting defaults');
+            // Set default values if no data
+            document.getElementById('totalStudents').textContent = '0';
+            document.getElementById('weeklyLessons').textContent = '0';
+            document.getElementById('monthlyEarnings').textContent = '$0';
+            document.getElementById('teacherRating').textContent = '$0.00';
+            return;
+        }
+
+        // Calculate total unique students
+        const uniqueStudents = new Set(lessonsResult.lessons.map(lesson => lesson.studentEmail));
+        const totalStudents = uniqueStudents.size;
+        console.log('Unique students:', Array.from(uniqueStudents));
+        console.log('Total students count:', totalStudents);
+
+        // Calculate this week's lessons (simplified - counting all lessons as this week for demo)
+        const weeklyLessons = lessonsResult.lessons.length;
+
+        // Calculate lesson earnings (each lesson = $50)
+        const lessonEarnings = weeklyLessons * 50;
+        
+        // Calculate admin fee payment (15% of each $50 lesson = $7.50 per lesson)
+        const adminFeePerLesson = 7.50;
+        const adminFeePayment = weeklyLessons * adminFeePerLesson;
+
+        // Update dashboard stats
+        document.getElementById('totalStudents').textContent = totalStudents;
+        document.getElementById('weeklyLessons').textContent = weeklyLessons;
+        document.getElementById('monthlyEarnings').textContent = `$${lessonEarnings.toFixed(2)}`;
+        document.getElementById('teacherRating').textContent = `$${adminFeePayment.toFixed(2)}`;
+
+    } catch (error) {
+        console.error('Error loading teacher statistics:', error);
+        // Set default values on error
+        document.getElementById('totalStudents').textContent = '0';
+        document.getElementById('weeklyLessons').textContent = '0';
+        document.getElementById('monthlyEarnings').textContent = '$0';
+        document.getElementById('teacherRating').textContent = '$0.00';
+    }
+}
+
+// Admin Fee Payment Functions
+function showAdminFeePaymentModal() {
+    // Get current admin fee amount
+    const adminFeeText = document.getElementById('teacherRating').textContent;
+    const adminFeeAmount = parseFloat(adminFeeText.replace('$', ''));
+    
+    // Update modal with current admin fee
+    document.getElementById('adminTotalLessons').textContent = Math.floor(adminFeeAmount / 7.50);
+    document.getElementById('adminTotalFee').textContent = `$${adminFeeAmount.toFixed(2)}`;
+    
+    // Populate expiry year dropdown
+    populateExpiryYears('adminExpiryYear');
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('adminFeePaymentModal'));
+    modal.show();
+}
+
+// Helper function to populate expiry years
+function populateExpiryYears(selectId) {
+    const yearSelect = document.getElementById(selectId);
+    const currentYear = new Date().getFullYear();
+    
+    // Clear existing options except the first placeholder
+    yearSelect.innerHTML = '<option value="">YYYY</option>';
+    
+    // Add years from current year to 10 years in the future
+    for (let year = currentYear; year <= currentYear + 10; year++) {
+        const option = document.createElement('option');
+        option.value = year.toString();
+        option.textContent = year.toString();
+        yearSelect.appendChild(option);
+    }
+}
+
+async function processAdminFeePayment() {
+    try {
+        // Get form data
+        const cardNumber = document.getElementById('adminCardNumber').value;
+        const cardholderName = document.getElementById('adminCardholderName').value;
+        const expiryMonth = document.getElementById('adminExpiryMonth').value;
+        const expiryYear = document.getElementById('adminExpiryYear').value;
+        const cvv = document.getElementById('adminCvv').value;
+        const paymentMethod = document.getElementById('adminPaymentMethod').value;
+        
+        // Debug: Log all field values
+        console.log('Admin fee payment fields:', {
+            cardNumber: cardNumber,
+            cardholderName: cardholderName,
+            expiryMonth: expiryMonth,
+            expiryYear: expiryYear,
+            cvv: cvv,
+            paymentMethod: paymentMethod
+        });
+        
+        // Validation
+        if (!cardNumber || !cardholderName || !expiryMonth || !expiryYear || !cvv || !paymentMethod) {
+            console.log('Validation failed - missing fields');
+            showNotification('Please fill in all payment fields', 'warning');
+            return;
+        }
+        
+        // Get admin fee amount
+        const adminFeeText = document.getElementById('teacherRating').textContent;
+        const adminFeeAmount = parseFloat(adminFeeText.replace('$', ''));
+        
+        if (adminFeeAmount <= 0) {
+            showNotification('No admin fees to pay', 'info');
+            return;
+        }
+        
+        // Create payment data
+        const paymentData = {
+            cardNumber: cardNumber,
+            cardholderName: cardholderName,
+            expiryMonth: expiryMonth,
+            expiryYear: expiryYear,
+            cvv: cvv,
+            paymentMethod: paymentMethod,
+            amount: adminFeeAmount,
+            description: 'Admin Fee Payment',
+            teacherEmail: sessionStorage.getItem('userEmail')
+        };
+        
+        // Process payment
+        const response = await fetch(`${API_BASE_URL}/Auth/payment/admin-fee-process`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(paymentData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Payment successful
+            showNotification(`Admin fee payment successful! Transaction ID: ${result.transactionId}`, 'success');
+            
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('adminFeePaymentModal'));
+            modal.hide();
+            
+            // Reset admin fee to $0.00
+            document.getElementById('teacherRating').textContent = '$0.00';
+            
+            // Clear form
+            document.getElementById('adminFeePaymentForm').reset();
+            
+        } else {
+            showNotification(`Payment failed: ${result.error}`, 'danger');
+        }
+        
+    } catch (error) {
+        console.error('Admin fee payment error:', error);
+        showNotification('Payment failed. Please try again.', 'danger');
+    }
+}
+
+// Admin Dashboard Functions
+async function loadAdminDashboard() {
+    try {
+        // Load all admin statistics from the new API endpoint
+        await loadAdminDashboardStats();
+        
+    } catch (error) {
+        console.error('Error loading admin dashboard:', error);
+    }
+}
+
+async function loadAdminDashboardStats() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/Auth/admin/dashboard-stats`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({})
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.stats) {
+            const stats = result.stats;
+            
+            // Update all KPI cards
+            document.getElementById('totalStudents').textContent = stats.totalStudents || 0;
+            document.getElementById('totalTeachers').textContent = stats.totalTeachers || 0;
+            document.getElementById('totalLessons').textContent = stats.totalLessons || 0;
+            document.getElementById('totalRevenue').textContent = `$${(stats.totalRevenue || 0).toFixed(2)}`;
+            document.getElementById('totalInstruments').textContent = stats.totalInstruments || 0;
+            document.getElementById('repeatLessonPercentage').textContent = `${(stats.repeatLessonPercentage || 0).toFixed(1)}%`;
+            
+        } else {
+            // Set default values on error
+            document.getElementById('totalStudents').textContent = '0';
+            document.getElementById('totalTeachers').textContent = '0';
+            document.getElementById('totalLessons').textContent = '0';
+            document.getElementById('totalRevenue').textContent = '$0.00';
+            document.getElementById('totalInstruments').textContent = '0';
+            document.getElementById('repeatLessonPercentage').textContent = '0%';
+        }
+        
+    } catch (error) {
+        console.error('Error loading admin dashboard stats:', error);
+        // Set default values on error
+        document.getElementById('totalStudents').textContent = '0';
+        document.getElementById('totalTeachers').textContent = '0';
+        document.getElementById('totalLessons').textContent = '0';
+        document.getElementById('totalRevenue').textContent = '$0.00';
+        document.getElementById('totalInstruments').textContent = '0';
+        document.getElementById('repeatLessonPercentage').textContent = '0%';
+    }
+}
+
+async function getTeacherEarnings() {
+    try {
+        const userEmail = sessionStorage.getItem('userEmail');
+        if (!userEmail) {
+            return { success: false, error: 'No active session. Please login again.' };
+        }
+
+        const response = await fetch(`${API_BASE_URL}/Auth/payment/teacher-earnings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ StudentEmail: userEmail })
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Get teacher earnings error:', error);
+        return { success: false, error: error.message };
     }
 }
 
@@ -1634,7 +2035,7 @@ window.saveTeacherAvailability = async function() {
 };
 
 async function loadTeacherLessons() {
-    const teacherLessons = document.getElementById('teacherLessons');
+    const teacherLessons = document.getElementById('upcomingLessons');
     if (!teacherLessons) return;
     
     const result = await getTeacherLessons();
@@ -1650,7 +2051,7 @@ async function loadTeacherLessons() {
                             <th><i class="fas fa-calendar me-1"></i>Date</th>
                             <th><i class="fas fa-clock me-1"></i>Time</th>
                             <th><i class="fas fa-laptop me-1"></i>Type</th>
-                            <th><i class="fas fa-check-circle me-1"></i>Status</th>
+                            <th><i class="fas fa-upload me-1"></i>Upload Files</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1658,10 +2059,23 @@ async function loadTeacherLessons() {
                             <tr>
                                 <td><strong>${lesson.studentName}</strong></td>
                                 <td><span class="badge bg-secondary">${lesson.instrument}</span></td>
-                                <td>${lesson.lessonDate}</td>
-                                <td>${lesson.lessonTime}</td>
-                                <td><span class="badge ${lesson.lessonType === 'Virtual' ? 'bg-info' : 'bg-warning'}">${lesson.lessonType}</span></td>
-                                <td><span class="badge bg-success">${lesson.status}</span></td>
+                                <td>${lesson.day}</td>
+                                <td>Weekly</td>
+                                <td><span class="badge bg-info">In-Person</span></td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <input type="file" 
+                                               id="fileInput_${lesson.studentEmail}_${lesson.day}" 
+                                               class="d-none" 
+                                               accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.gif,.txt"
+                                               onchange="uploadFile('${lesson.studentEmail}', '${lesson.day}')">
+                                        <button class="btn btn-sm btn-outline-primary" 
+                                                onclick="document.getElementById('fileInput_${lesson.studentEmail}_${lesson.day}').click()">
+                                            <i class="fas fa-upload me-1"></i>Upload
+                                        </button>
+                                        <div id="uploadStatus_${lesson.studentEmail}_${lesson.day}" class="upload-status"></div>
+                                    </div>
+                                </td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -2691,6 +3105,7 @@ window.performLogin = async function() {
             sessionStorage.setItem('userEmail', email);
             sessionStorage.setItem('userName', `${result.user.firstName} ${result.user.lastName}`);
             sessionStorage.setItem('accountType', result.user.accountType);
+            sessionStorage.setItem('userRole', result.user.userRole || result.user.accountType);
             
             showBottomCornerNotification(`Welcome back, ${result.user.firstName}!`, 'success');
             
@@ -3024,3 +3439,203 @@ function testButtonVisibility() {
 
 // Make test function available globally
 window.testButtonVisibility = testButtonVisibility;
+
+// File Upload Functions
+async function uploadFile(studentEmail, lessonDay) {
+    const fileInput = document.getElementById(`fileInput_${studentEmail}_${lessonDay}`);
+    const statusDiv = document.getElementById(`uploadStatus_${studentEmail}_${lessonDay}`);
+    
+    if (!fileInput.files || fileInput.files.length === 0) {
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    const teacherEmail = sessionStorage.getItem('userEmail');
+    
+    if (!teacherEmail) {
+        showNotification('Please log in to upload files', 'warning');
+        return;
+    }
+    
+    // Show uploading status
+    statusDiv.innerHTML = '<span class="text-muted"><i class="fas fa-spinner fa-spin me-1"></i>Uploading...</span>';
+    
+    try {
+        console.log('Uploading file:', {
+            fileName: file.name,
+            fileSize: file.size,
+            fileType: file.type,
+            studentEmail: studentEmail,
+            teacherEmail: teacherEmail,
+            lessonDay: lessonDay
+        });
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('studentEmail', studentEmail);
+        formData.append('teacherEmail', teacherEmail);
+        formData.append('lessonDay', lessonDay);
+        
+        console.log('FormData contents:');
+        for (let [key, value] of formData.entries()) {
+            console.log(key, value);
+        }
+        
+        const response = await fetch(`${API_BASE_URL}/Auth/upload-lesson-file`, {
+            method: 'POST',
+            body: formData
+        });
+        
+        console.log('Response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const responseText = await response.text();
+        console.log('Response text:', responseText);
+        
+        let result;
+        try {
+            result = JSON.parse(responseText);
+            console.log('Parsed result:', result);
+        } catch (parseError) {
+            console.error('JSON parse error:', parseError);
+            console.error('Raw response:', responseText);
+            throw new Error(`Invalid JSON response: ${responseText}`);
+        }
+        
+        if (result.success) {
+            // Show success status
+            statusDiv.innerHTML = '<span class="text-success"><i class="fas fa-check-circle me-1"></i>Uploaded</span>';
+            showNotification(`File "${file.name}" uploaded successfully!`, 'success');
+            
+            // Clear the file input
+            fileInput.value = '';
+        } else {
+            // Show error status
+            statusDiv.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>Failed</span>';
+            showNotification(`Upload failed: ${result.error}`, 'danger');
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        statusDiv.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>Error</span>';
+        showNotification('Upload failed. Please try again.', 'danger');
+    }
+}
+
+async function getLessonFiles(studentEmail, teacherEmail, lessonDay) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/Auth/get-lesson-files`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                studentEmail: studentEmail,
+                teacherEmail: teacherEmail,
+                lessonDay: lessonDay
+            })
+        });
+        
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Error getting lesson files:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// Admin User Creation
+async function createAdminUser(name, email, password) {
+    try {
+        const response = await fetch(`${API_BASE_URL}/Auth/admin/create-admin`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                Name: name,
+                Email: email,
+                Password: password
+            })
+        });
+        
+        const result = await response.json();
+        return result;
+    } catch (error) {
+        console.error('Error creating admin user:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// Admin Login Functions
+function showAdminLogin() {
+    const modal = new bootstrap.Modal(document.getElementById('adminLoginModal'));
+    modal.show();
+}
+
+async function performAdminLogin() {
+    const email = document.getElementById('adminEmail').value.trim();
+    const password = document.getElementById('adminPassword').value;
+    const messageDiv = document.getElementById('adminLoginMessage');
+    
+    // Clear previous messages
+    messageDiv.classList.add('d-none');
+    
+    // Validation
+    if (!email || !password) {
+        showAdminMessage('Please enter both email and password.', 'danger');
+        return;
+    }
+    
+    if (!validateEmail(email)) {
+        showAdminMessage('Please enter a valid email address.', 'danger');
+        return;
+    }
+    
+    try {
+        const result = await performLoginAPI(email, password);
+        
+        if (result.success) {
+            // Check if user is admin
+            if (result.user.userRole === 'admin') {
+                // Store admin session
+                sessionStorage.setItem('userEmail', email);
+                sessionStorage.setItem('userName', `${result.user.firstName} ${result.user.lastName}`);
+                sessionStorage.setItem('accountType', result.user.accountType);
+                sessionStorage.setItem('userRole', result.user.userRole);
+                
+                showAdminMessage('Admin login successful! Redirecting to dashboard...', 'success');
+                
+                setTimeout(() => {
+                    bootstrap.Modal.getInstance(document.getElementById('adminLoginModal')).hide();
+                    document.getElementById('adminLoginForm').reset();
+                    updateAuthUI();
+                    showPage('admin-dashboard');
+                }, 1500);
+            } else {
+                showAdminMessage('Access denied. Admin privileges required.', 'danger');
+            }
+        } else {
+            showAdminMessage(result.error || 'Invalid credentials.', 'danger');
+        }
+    } catch (error) {
+        console.error('Admin login error:', error);
+        showAdminMessage('Login failed. Please try again.', 'danger');
+    }
+}
+
+function showAdminMessage(message, type) {
+    const messageDiv = document.getElementById('adminLoginMessage');
+    messageDiv.textContent = message;
+    messageDiv.className = `alert alert-${type}`;
+    messageDiv.classList.remove('d-none');
+}
+
+// Make upload functions available globally
+window.uploadFile = uploadFile;
+window.getLessonFiles = getLessonFiles;
+window.createAdminUser = createAdminUser;
+window.showAdminLogin = showAdminLogin;
+window.performAdminLogin = performAdminLogin;

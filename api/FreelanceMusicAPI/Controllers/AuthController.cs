@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using System.Security.Cryptography;
+using BCrypt.Net;
 
 namespace FreelanceMusicAPI.Controllers
 {
@@ -27,7 +28,7 @@ namespace FreelanceMusicAPI.Controllers
                 pragmaCmd.CommandText = "PRAGMA foreign_keys = ON;";
                 pragmaCmd.ExecuteNonQuery();
 
-                // Create Student table (matching your schema)
+                // Create Student table (matching your exact schema)
                 var createStudentTableCmd = connection.CreateCommand();
                 createStudentTableCmd.CommandText = @"
                     CREATE TABLE IF NOT EXISTS Student (
@@ -36,18 +37,18 @@ namespace FreelanceMusicAPI.Controllers
                         student_email TEXT NOT NULL UNIQUE,
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        studentpassword INTEGER UNIQUE
+                        studentpassword TEXT
                     );";
                 createStudentTableCmd.ExecuteNonQuery();
 
-                // Create Teacher table (matching your schema with current_class and password added)
+                // Create Teacher table (matching your exact schema)
                 var createTeacherTableCmd = connection.CreateCommand();
                 createTeacherTableCmd.CommandText = @"
                     CREATE TABLE IF NOT EXISTS Teacher (
                         teacher_id INTEGER PRIMARY KEY AUTOINCREMENT,
                         teacher_name TEXT NOT NULL,
+                        teacher_password TEXT,
                         teacher_email TEXT NOT NULL UNIQUE,
-                        teacher_password INTEGER UNIQUE,
                         instrument TEXT NOT NULL,
                         class_full INTEGER DEFAULT 0 CHECK (class_full IN (0, 1)),
                         class_limit INTEGER DEFAULT 10,
@@ -64,6 +65,30 @@ namespace FreelanceMusicAPI.Controllers
                     var alterTeacherTableCmd = connection.CreateCommand();
                     alterTeacherTableCmd.CommandText = "ALTER TABLE Teacher ADD COLUMN teacher_password INTEGER UNIQUE;";
                     alterTeacherTableCmd.ExecuteNonQuery();
+                }
+                catch (SqliteException)
+                {
+                    // Column already exists, ignore the error
+                }
+
+                // Add user_role column to Student table if it doesn't exist
+                try
+                {
+                    var alterStudentRoleCmd = connection.CreateCommand();
+                    alterStudentRoleCmd.CommandText = "ALTER TABLE Student ADD COLUMN user_role TEXT DEFAULT 'student';";
+                    alterStudentRoleCmd.ExecuteNonQuery();
+                }
+                catch (SqliteException)
+                {
+                    // Column already exists, ignore the error
+                }
+
+                // Add user_role column to Teacher table if it doesn't exist
+                try
+                {
+                    var alterTeacherRoleCmd = connection.CreateCommand();
+                    alterTeacherRoleCmd.CommandText = "ALTER TABLE Teacher ADD COLUMN user_role TEXT DEFAULT 'teacher';";
+                    alterTeacherRoleCmd.ExecuteNonQuery();
                 }
                 catch (SqliteException)
                 {
@@ -100,6 +125,36 @@ namespace FreelanceMusicAPI.Controllers
                     );";
                 createTeacherAvailabilityTableCmd.ExecuteNonQuery();
 
+                // Create Payment table (matching your exact schema)
+                var createPaymentTableCmd = connection.CreateCommand();
+                createPaymentTableCmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS Payment (
+                        pmtID INTEGER PRIMARY KEY AUTOINCREMENT,
+                        stdID INTEGER NOT NULL,
+                        teacherID INTEGER NOT NULL,
+                        pmtAMT DECIMAL(10,2) NOT NULL,
+                        admin_fee DECIMAL(10,2) NOT NULL,
+                        CREATEDat DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (stdID) REFERENCES Student(student_id) ON DELETE CASCADE,
+                        FOREIGN KEY (teacherID) REFERENCES Teacher(teacher_id) ON DELETE CASCADE
+                    );";
+                createPaymentTableCmd.ExecuteNonQuery();
+
+                // Create Lesson_Files table (matching your exact schema)
+                var createLessonFilesTableCmd = connection.CreateCommand();
+                createLessonFilesTableCmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS Lesson_Files (
+                        file_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        lesson_id INTEGER,
+                        student_id INTEGER NOT NULL,
+                        teacher_id INTEGER NOT NULL,
+                        file_name TEXT NOT NULL,
+                        file_path TEXT NOT NULL,
+                        FOREIGN KEY (student_id) REFERENCES Student(student_id) ON DELETE CASCADE,
+                        FOREIGN KEY (teacher_id) REFERENCES Teacher(teacher_id) ON DELETE CASCADE
+                    );";
+                createLessonFilesTableCmd.ExecuteNonQuery();
+
                 // Create indexes for better performance
                 var createIndexesCmd = connection.CreateCommand();
                 createIndexesCmd.CommandText = @"
@@ -110,6 +165,8 @@ namespace FreelanceMusicAPI.Controllers
                     CREATE INDEX IF NOT EXISTS idx_student_studying_teacher ON Student_Studying(teacher_id);
                     CREATE INDEX IF NOT EXISTS idx_teacher_availability_teacher ON Teacher_Day_Availability(teacher_id);
                     CREATE INDEX IF NOT EXISTS idx_teacher_availability_day ON Teacher_Day_Availability(day);
+                    CREATE INDEX IF NOT EXISTS idx_payment_student ON Payment(stdID);
+                    CREATE INDEX IF NOT EXISTS idx_payment_teacher ON Payment(teacherID);
                 ";
                 createIndexesCmd.ExecuteNonQuery();
             }
@@ -231,11 +288,10 @@ namespace FreelanceMusicAPI.Controllers
                 // Try to find user in Student table first
                 var getStudentCmd = connection.CreateCommand();
                 getStudentCmd.CommandText = @"
-                    SELECT student_id, student_name, student_email 
+                    SELECT student_id, student_name, student_email, studentpassword, COALESCE(user_role, 'student') as user_role
                     FROM Student 
-                    WHERE student_email = @email AND studentpassword = @password";
+                    WHERE student_email = @email";
                 getStudentCmd.Parameters.AddWithValue("@email", request.Email);
-                getStudentCmd.Parameters.AddWithValue("@password", int.Parse(request.Password));
 
                 using (var reader = getStudentCmd.ExecuteReader())
                 {
@@ -244,26 +300,44 @@ namespace FreelanceMusicAPI.Controllers
                         var userId = reader.GetInt32(0);
                         var fullName = reader.GetString(1);
                         var email = reader.GetString(2);
-                        var nameParts = fullName.Split(' ');
-                        var firstName = nameParts.Length > 0 ? nameParts[0] : "";
-                        var lastName = nameParts.Length > 1 ? string.Join(" ", nameParts.Skip(1)) : "";
-
-                        return Ok(new
+                        var storedPassword = reader.GetString(3);
+                        var userRole = reader.GetString(4);
+                        
+                        // Check password - handle both old integer format and new BCrypt format
+                        bool passwordValid = false;
+                        
+                        if (storedPassword.StartsWith("$2")) // BCrypt format
                         {
-                            success = true,
-                            user = new { id = userId, firstName, lastName, email, accountType = "student" }
-                        });
+                            passwordValid = BCrypt.Net.BCrypt.Verify(request.Password, storedPassword);
+                        }
+                        else if (int.TryParse(storedPassword, out int oldPasswordHash))
+                        {
+                            // Old format - check if password matches the hash
+                            passwordValid = (oldPasswordHash.ToString() == request.Password);
+                        }
+                        
+                        if (passwordValid)
+                        {
+                            var nameParts = fullName.Split(' ');
+                            var firstName = nameParts.Length > 0 ? nameParts[0] : "";
+                            var lastName = nameParts.Length > 1 ? string.Join(" ", nameParts.Skip(1)) : "";
+
+                            return Ok(new
+                            {
+                                success = true,
+                                user = new { id = userId, firstName, lastName, email, accountType = "student", userRole = userRole }
+                            });
+                        }
                     }
                 }
 
                 // If not found in Student table, try Teacher table
-                    var getTeacherCmd = connection.CreateCommand();
+                var getTeacherCmd = connection.CreateCommand();
                 getTeacherCmd.CommandText = @"
-                    SELECT teacher_id, teacher_name, teacher_email 
+                    SELECT teacher_id, teacher_name, teacher_email, teacher_password, COALESCE(user_role, 'teacher') as user_role
                     FROM Teacher 
-                    WHERE teacher_email = @email AND teacher_password = @password";
+                    WHERE teacher_email = @email";
                 getTeacherCmd.Parameters.AddWithValue("@email", request.Email);
-                getTeacherCmd.Parameters.AddWithValue("@password", int.Parse(request.Password));
 
                 using (var teacherReader = getTeacherCmd.ExecuteReader())
                 {
@@ -272,21 +346,38 @@ namespace FreelanceMusicAPI.Controllers
                         var userId = teacherReader.GetInt32(0);
                         var fullName = teacherReader.GetString(1);
                         var email = teacherReader.GetString(2);
-                        var nameParts = fullName.Split(' ');
-                        var firstName = nameParts.Length > 0 ? nameParts[0] : "";
-                        var lastName = nameParts.Length > 1 ? string.Join(" ", nameParts.Skip(1)) : "";
-
-                        return Ok(new
+                        var storedPassword = teacherReader.GetString(3);
+                        var userRole = teacherReader.GetString(4);
+                        
+                        // Check password - handle both old integer format and new BCrypt format
+                        bool passwordValid = false;
+                        
+                        if (storedPassword.StartsWith("$2")) // BCrypt format
                         {
-                            success = true,
-                            user = new { id = userId, firstName, lastName, email, accountType = "teacher" }
-                        });
+                            passwordValid = BCrypt.Net.BCrypt.Verify(request.Password, storedPassword);
+                        }
+                        else if (int.TryParse(storedPassword, out int oldPasswordHash))
+                        {
+                            // Old format - check if password matches the hash
+                            passwordValid = (oldPasswordHash.ToString() == request.Password);
+                        }
+                        
+                        if (passwordValid)
+                        {
+                            var nameParts = fullName.Split(' ');
+                            var firstName = nameParts.Length > 0 ? nameParts[0] : "";
+                            var lastName = nameParts.Length > 1 ? string.Join(" ", nameParts.Skip(1)) : "";
+
+                            return Ok(new
+                            {
+                                success = true,
+                                user = new { id = userId, firstName, lastName, email, accountType = "teacher", userRole = userRole }
+                            });
+                        }
+                        }
                     }
-                    else
-                    {
+                
                         return Unauthorized(new { success = false, error = "Invalid email or password." });
-                    }
-                }
             }
         }
 
@@ -860,6 +951,466 @@ namespace FreelanceMusicAPI.Controllers
                 return Ok(new { success = true, studying = studying });
             }
         }
+
+        [HttpPost("admin/dashboard-stats")]
+        public IActionResult GetAdminDashboardStats([FromBody] object request)
+        {
+            try
+        {
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+
+                    // Get total students
+                    var totalStudentsCmd = connection.CreateCommand();
+                    totalStudentsCmd.CommandText = "SELECT COUNT(*) FROM Student";
+                    var totalStudents = totalStudentsCmd.ExecuteScalar();
+
+                    // Get total teachers
+                    var totalTeachersCmd = connection.CreateCommand();
+                    totalTeachersCmd.CommandText = "SELECT COUNT(*) FROM Teacher";
+                    var totalTeachers = totalTeachersCmd.ExecuteScalar();
+
+                    // Get total lessons booked
+                    var totalLessonsCmd = connection.CreateCommand();
+                    totalLessonsCmd.CommandText = "SELECT COUNT(*) FROM Student_Studying";
+                    var totalLessons = totalLessonsCmd.ExecuteScalar();
+
+                    // Get total revenue from admin fees
+                    var totalRevenueCmd = connection.CreateCommand();
+                    totalRevenueCmd.CommandText = @"
+                        SELECT COALESCE(SUM(pmtAMT), 0) 
+                        FROM Payment";
+                    var totalRevenue = totalRevenueCmd.ExecuteScalar();
+
+                    // Get total instruments offered
+                    var totalInstrumentsCmd = connection.CreateCommand();
+                    totalInstrumentsCmd.CommandText = "SELECT COUNT(DISTINCT instrument) FROM Teacher";
+                    var totalInstruments = totalInstrumentsCmd.ExecuteScalar();
+
+                    // Get repeat lesson percentage
+                    var repeatLessonsCmd = connection.CreateCommand();
+                    repeatLessonsCmd.CommandText = @"
+                        SELECT 
+                            CASE 
+                                WHEN COUNT(DISTINCT student_id) = 0 THEN 0
+                                ELSE ROUND(
+                                    (COUNT(DISTINCT CASE WHEN lesson_count > 1 THEN student_id END) * 100.0) / 
+                                    COUNT(DISTINCT student_id), 2
+                                )
+                            END as repeat_percentage
+                        FROM (
+                            SELECT student_id, COUNT(*) as lesson_count
+                            FROM Student_Studying
+                            GROUP BY student_id
+                        )";
+                    var repeatPercentage = repeatLessonsCmd.ExecuteScalar();
+
+                    return Ok(new
+                    {
+                            success = true, 
+                        stats = new
+                        {
+                            totalStudents = Convert.ToInt32(totalStudents),
+                            totalTeachers = Convert.ToInt32(totalTeachers),
+                            totalLessons = Convert.ToInt32(totalLessons),
+                            totalRevenue = Convert.ToDecimal(totalRevenue),
+                            totalInstruments = Convert.ToInt32(totalInstruments),
+                            repeatLessonPercentage = Convert.ToDouble(repeatPercentage)
+                        }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, error = $"Failed to get admin stats: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("admin/create-admin")]
+        public IActionResult CreateAdminUser([FromBody] CreateAdminRequest request)
+        {
+            try
+            {
+                using (var connection = new SqliteConnection(_connectionString))
+                {
+                    connection.Open();
+
+                    // Check if admin already exists
+                    var checkAdminCmd = connection.CreateCommand();
+                    checkAdminCmd.CommandText = @"
+                        SELECT COUNT(*) FROM Student WHERE student_email = @email AND user_role = 'admin'
+                        UNION ALL
+                        SELECT COUNT(*) FROM Teacher WHERE teacher_email = @email AND user_role = 'admin'";
+                    checkAdminCmd.Parameters.AddWithValue("@email", request.Email);
+                    
+                    var existingAdmins = 0;
+                    using (var reader = checkAdminCmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            existingAdmins += reader.GetInt32(0);
+                        }
+                    }
+
+                    if (existingAdmins > 0)
+                    {
+                        return BadRequest(new { success = false, error = "Admin user already exists." });
+                    }
+
+                    // Create admin user in Student table (for simplicity)
+                    var createAdminCmd = connection.CreateCommand();
+                    createAdminCmd.CommandText = @"
+                        INSERT INTO Student (student_name, student_email, studentpassword, user_role)
+                        VALUES (@name, @email, @password, 'admin')";
+                    createAdminCmd.Parameters.AddWithValue("@name", request.Name);
+                    createAdminCmd.Parameters.AddWithValue("@email", request.Email);
+                    createAdminCmd.Parameters.AddWithValue("@password", int.Parse(request.Password));
+
+                    createAdminCmd.ExecuteNonQuery();
+
+                    return Ok(new { success = true, message = "Admin user created successfully." });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, error = $"Failed to create admin: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("payment/process")]
+        public IActionResult ProcessPayment([FromBody] ProcessPaymentRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.StudentEmail) || 
+                    string.IsNullOrWhiteSpace(request.TeacherEmail) ||
+                    string.IsNullOrWhiteSpace(request.CardNumber) ||
+                    string.IsNullOrWhiteSpace(request.ExpiryMonth) ||
+                    string.IsNullOrWhiteSpace(request.ExpiryYear) ||
+                    string.IsNullOrWhiteSpace(request.CVV) ||
+                    string.IsNullOrWhiteSpace(request.CardholderName))
+                {
+                    return BadRequest(new { success = false, error = "All payment fields are required." });
+            }
+
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+
+                    // Get student and teacher IDs
+                    var getStudentIdCmd = connection.CreateCommand();
+                    getStudentIdCmd.CommandText = "SELECT student_id FROM Student WHERE student_email = @email";
+                    getStudentIdCmd.Parameters.AddWithValue("@email", request.StudentEmail);
+                    var studentId = getStudentIdCmd.ExecuteScalar();
+
+                    var getTeacherIdCmd = connection.CreateCommand();
+                    getTeacherIdCmd.CommandText = "SELECT teacher_id FROM Teacher WHERE teacher_email = @email";
+                    getTeacherIdCmd.Parameters.AddWithValue("@email", request.TeacherEmail);
+                    var teacherId = getTeacherIdCmd.ExecuteScalar();
+
+                    if (studentId == null || teacherId == null)
+                    {
+                        return BadRequest(new { success = false, error = "Student or teacher not found." });
+                    }
+
+                    // Simulate payment processing (in real app, integrate with payment gateway)
+                    var paymentId = Guid.NewGuid().ToString();
+                    var amount = 50.00m; // $50 per lesson
+                    var adminFee = 7.50m; // 15% admin fee
+
+                    // Insert payment record
+                    var insertPaymentCmd = connection.CreateCommand();
+                    insertPaymentCmd.CommandText = @"
+                        INSERT INTO Payment (stdID, teacherID, pmtAMT, admin_fee, CREATEDat)
+                        VALUES (@studentId, @teacherId, @amount, @adminFee, @createdAt)";
+                    insertPaymentCmd.Parameters.AddWithValue("@studentId", studentId);
+                    insertPaymentCmd.Parameters.AddWithValue("@teacherId", teacherId);
+                    insertPaymentCmd.Parameters.AddWithValue("@amount", amount);
+                    insertPaymentCmd.Parameters.AddWithValue("@adminFee", adminFee);
+                    insertPaymentCmd.Parameters.AddWithValue("@createdAt", DateTime.UtcNow);
+                    insertPaymentCmd.ExecuteNonQuery();
+
+                return Ok(new { 
+                    success = true, 
+                        message = "Payment processed successfully.",
+                        paymentId = paymentId,
+                        amount = amount,
+                        adminFee = adminFee
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, error = $"Payment processing failed: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("payment/history")]
+        public IActionResult GetPaymentHistory([FromBody] PaymentHistoryRequest request)
+        {
+            try
+        {
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+
+                    var getPaymentsCmd = connection.CreateCommand();
+                    getPaymentsCmd.CommandText = @"
+                        SELECT p.pmtID, p.pmtAMT, p.admin_fee, p.CREATEDat,
+                               s.student_name, t.teacher_name
+                        FROM Payment p
+                        JOIN Student s ON p.stdID = s.student_id
+                        JOIN Teacher t ON p.teacherID = t.teacher_id
+                        WHERE s.student_email = @email OR t.teacher_email = @email
+                        ORDER BY p.CREATEDat DESC";
+                    getPaymentsCmd.Parameters.AddWithValue("@email", request.Email);
+
+                    var payments = new List<object>();
+                    using (var reader = getPaymentsCmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            payments.Add(new
+                            {
+                                paymentId = reader.GetString(0),
+                                amount = reader.GetDecimal(1),
+                                adminFee = reader.GetDecimal(2),
+                                status = reader.GetString(3),
+                                createdAt = reader.GetDateTime(4),
+                                studentName = reader.GetString(5),
+                                teacherName = reader.GetString(6)
+                            });
+                        }
+                    }
+
+                    return Ok(new { success = true, payments = payments });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, error = $"Failed to get payment history: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("teacher-students/get")]
+        public IActionResult GetTeacherStudents([FromBody] GetTeacherStudentsRequest request)
+        {
+            try
+            {
+            using (var connection = new SqliteConnection(_connectionString))
+            {
+                connection.Open();
+
+                    var getStudentsCmd = connection.CreateCommand();
+                    getStudentsCmd.CommandText = @"
+                        SELECT 
+                            ss.student_id,
+                            s.student_name,
+                            s.student_email,
+                            ss.day,
+                            ss.created_at
+                        FROM Student_Studying ss
+                        JOIN Student s ON ss.student_id = s.student_id
+                        JOIN Teacher t ON ss.teacher_id = t.teacher_id
+                        WHERE t.teacher_email = @teacherEmail
+                        ORDER BY ss.created_at DESC";
+                    getStudentsCmd.Parameters.AddWithValue("@teacherEmail", request.TeacherEmail);
+
+                    var students = new List<object>();
+                    using (var reader = getStudentsCmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            students.Add(new
+                            {
+                                studentId = reader.GetInt32(0),
+                                studentName = reader.GetString(1),
+                                studentEmail = reader.GetString(2),
+                                day = reader.GetString(3),
+                                createdAt = reader.GetString(4)
+                            });
+                        }
+                    }
+
+                    Console.WriteLine($"Found {students.Count} students for teacher {request.TeacherEmail}");
+                    return Ok(new { success = true, lessons = students });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, error = $"Failed to get teacher students: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("test-upload")]
+        public async Task<IActionResult> TestUpload()
+        {
+            try
+            {
+                var form = await Request.ReadFormAsync();
+                return Ok(new { 
+                    success = true, 
+                    message = "Test upload successful",
+                    formKeys = form.Keys.ToList(),
+                    filesCount = form.Files.Count,
+                    hasFile = form.Files["file"] != null
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, error = ex.Message, stackTrace = ex.StackTrace });
+            }
+        }
+
+        [HttpPost("upload-lesson-file")]
+        public async Task<IActionResult> UploadLessonFile()
+        {
+            try
+            {
+                var form = await Request.ReadFormAsync();
+                
+                var file = form.Files["file"];
+                var studentEmail = form["studentEmail"].ToString();
+                var teacherEmail = form["teacherEmail"].ToString();
+                var lessonDay = form["lessonDay"].ToString();
+
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest(new { success = false, error = "No file uploaded" });
+                }
+
+                if (string.IsNullOrEmpty(studentEmail) || string.IsNullOrEmpty(teacherEmail) || string.IsNullOrEmpty(lessonDay))
+                {
+                    return BadRequest(new { success = false, error = "Missing required parameters" });
+                }
+
+                // Create uploads directory if it doesn't exist
+                var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "resources", "uploads", "teacher_files");
+                if (!Directory.Exists(uploadsPath))
+                {
+                    Directory.CreateDirectory(uploadsPath);
+                }
+
+                // Generate unique filename
+                var fileName = $"{Guid.NewGuid()}_{file.FileName}";
+                var filePath = Path.Combine(uploadsPath, fileName);
+
+                // Save file
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                return Ok(new { 
+                    success = true, 
+                    message = "File uploaded successfully",
+                    fileName = file.FileName,
+                    filePath = filePath
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { 
+                    success = false, 
+                    error = $"Upload failed: {ex.Message}"
+                });
+            }
+        }
+
+        [HttpPost("payment/admin-fee-process")]
+        public IActionResult ProcessAdminFeePayment([FromBody] AdminFeePaymentRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.TeacherEmail) ||
+                    string.IsNullOrWhiteSpace(request.CardNumber) ||
+                    string.IsNullOrWhiteSpace(request.ExpiryMonth) ||
+                    string.IsNullOrWhiteSpace(request.ExpiryYear) ||
+                    string.IsNullOrWhiteSpace(request.CVV) ||
+                    string.IsNullOrWhiteSpace(request.CardholderName))
+                {
+                    return BadRequest(new { success = false, error = "All payment fields are required." });
+                }
+
+                // For now, just simulate successful payment
+                // In a real application, you would integrate with a payment gateway
+                return Ok(new { 
+                    success = true, 
+                    message = "Admin fee payment processed successfully",
+                    transactionId = Guid.NewGuid().ToString()
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, error = $"Payment processing failed: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("payment/teacher-earnings")]
+        public IActionResult GetTeacherEarnings([FromBody] TeacherEarningsRequest request)
+        {
+            try
+            {
+                using (var connection = new SqliteConnection(_connectionString))
+                {
+                    connection.Open();
+
+                    var getEarningsCmd = connection.CreateCommand();
+                    getEarningsCmd.CommandText = @"
+                        SELECT 
+                            COALESCE(SUM(pmtAMT - admin_fee), 0) as totalEarnings,
+                            COUNT(*) as totalLessons
+                        FROM Payment p
+                        JOIN Teacher t ON p.teacherID = t.teacher_id
+                        WHERE t.teacher_email = @email";
+                    getEarningsCmd.Parameters.AddWithValue("@email", request.TeacherEmail);
+
+                    using (var reader = getEarningsCmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            return Ok(new
+                            {
+                        success = true, 
+                                totalEarnings = reader.GetDecimal(0),
+                                totalLessons = reader.GetInt32(1)
+                    });
+                        }
+                    }
+
+                    return Ok(new { success = true, totalEarnings = 0, totalLessons = 0 });
+                }
+                }
+                catch (Exception ex)
+                {
+                return StatusCode(500, new { success = false, error = $"Failed to get teacher earnings: {ex.Message}" });
+            }
+        }
+
+        [HttpPost("payment/admin-fees")]
+        public IActionResult GetAdminFeeRevenue([FromBody] object request)
+        {
+            try
+            {
+                using (var connection = new SqliteConnection(_connectionString))
+                {
+                    connection.Open();
+
+                    var getAdminFeesCmd = connection.CreateCommand();
+                    getAdminFeesCmd.CommandText = @"
+                        SELECT COALESCE(SUM(admin_fee), 0) 
+                        FROM Payment";
+                    var totalAdminFees = getAdminFeesCmd.ExecuteScalar();
+
+                    return Ok(new { success = true, totalAdminFees = Convert.ToDecimal(totalAdminFees) });
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { success = false, error = $"Failed to get admin fee revenue: {ex.Message}" });
+            }
+        }
     }
 
     // DTOs for requests
@@ -940,6 +1491,22 @@ namespace FreelanceMusicAPI.Controllers
         public string? TeacherId { get; set; }
     }
 
+    public class GetTeacherStudentsRequest
+    {
+        public string? TeacherEmail { get; set; }
+    }
+
+    public class AdminFeePaymentRequest
+    {
+        public string? TeacherEmail { get; set; }
+        public string? CardNumber { get; set; }
+        public string? ExpiryMonth { get; set; }
+        public string? ExpiryYear { get; set; }
+        public string? CVV { get; set; }
+        public string? CardholderName { get; set; }
+        public decimal? Amount { get; set; }
+    }
+
     public class AddStudentStudyingRequest
     {
         public string? StudentEmail { get; set; }
@@ -950,5 +1517,33 @@ namespace FreelanceMusicAPI.Controllers
     public class GetStudentStudyingRequest
     {
         public string? StudentEmail { get; set; }
+    }
+
+    public class CreateAdminRequest
+    {
+        public string? Name { get; set; }
+        public string? Email { get; set; }
+        public string? Password { get; set; }
+    }
+
+    public class ProcessPaymentRequest
+    {
+        public string? StudentEmail { get; set; }
+        public string? TeacherEmail { get; set; }
+        public string? CardNumber { get; set; }
+        public string? ExpiryMonth { get; set; }
+        public string? ExpiryYear { get; set; }
+        public string? CVV { get; set; }
+        public string? CardholderName { get; set; }
+    }
+
+    public class PaymentHistoryRequest
+    {
+        public string? Email { get; set; }
+    }
+
+    public class TeacherEarningsRequest
+    {
+        public string? TeacherEmail { get; set; }
     }
 }
