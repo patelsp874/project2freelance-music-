@@ -925,8 +925,12 @@ async function getTeacherLessons() {
     try {
         const userEmail = sessionStorage.getItem('userEmail');
         if (!userEmail) {
+            console.log('No user email in session storage');
             return { success: false, error: 'No active session. Please login again.' };
         }
+
+        console.log('Fetching teacher lessons for:', userEmail);
+        console.log('API URL:', `${API_BASE_URL}/Auth/teacher-students/get`);
 
         const response = await fetch(`${API_BASE_URL}/Auth/teacher-students/get`, {
             method: 'POST',
@@ -934,11 +938,15 @@ async function getTeacherLessons() {
             body: JSON.stringify({ TeacherEmail: userEmail })
         });
 
+        console.log('Response status:', response.status);
+        console.log('Response ok:', response.ok);
+
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
         const result = await response.json();
+        console.log('API response:', result);
         return result;
     } catch (error) {
         console.error('Get teacher lessons error:', error);
@@ -1555,13 +1563,18 @@ async function loadTeacherDashboardData() {
 async function loadTeacherStatistics() {
     try {
         const userEmail = sessionStorage.getItem('userEmail');
-        if (!userEmail) return;
+        if (!userEmail) {
+            console.log('No user email found in session storage');
+            return;
+        }
+
+        console.log('Loading teacher statistics for:', userEmail);
 
         // Get teacher lessons data
         const lessonsResult = await getTeacherLessons();
         console.log('Teacher lessons result:', lessonsResult);
         
-        if (!lessonsResult.success || !lessonsResult.lessons) {
+        if (!lessonsResult.success || !lessonsResult.lessons || lessonsResult.lessons.length === 0) {
             console.log('No lessons data found, setting defaults');
             // Set default values if no data
             document.getElementById('totalStudents').textContent = '0';
@@ -1576,6 +1589,7 @@ async function loadTeacherStatistics() {
         const totalStudents = uniqueStudents.size;
         console.log('Unique students:', Array.from(uniqueStudents));
         console.log('Total students count:', totalStudents);
+        console.log('All lessons data:', lessonsResult.lessons);
 
         // Calculate this week's lessons (simplified - counting all lessons as this week for demo)
         const weeklyLessons = lessonsResult.lessons.length;
@@ -1593,6 +1607,13 @@ async function loadTeacherStatistics() {
         document.getElementById('monthlyEarnings').textContent = `$${lessonEarnings.toFixed(2)}`;
         document.getElementById('teacherRating').textContent = `$${adminFeePayment.toFixed(2)}`;
 
+        console.log('Updated teacher dashboard stats:', {
+            totalStudents,
+            weeklyLessons,
+            lessonEarnings,
+            adminFeePayment
+        });
+
     } catch (error) {
         console.error('Error loading teacher statistics:', error);
         // Set default values on error
@@ -1602,6 +1623,15 @@ async function loadTeacherStatistics() {
         document.getElementById('teacherRating').textContent = '$0.00';
     }
 }
+
+// Refresh teacher statistics function
+window.refreshTeacherStats = async function() {
+    console.log('Refreshing teacher statistics...');
+    showNotification('Refreshing statistics...', 'info');
+    await loadTeacherStatistics();
+    await loadTeacherLessons();
+    showNotification('Statistics updated!', 'success');
+};
 
 // Admin Fee Payment Functions
 function showAdminFeePaymentModal() {
