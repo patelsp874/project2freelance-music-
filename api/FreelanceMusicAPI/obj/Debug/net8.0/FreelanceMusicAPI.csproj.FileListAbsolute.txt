@@ -5,7 +5,6 @@ C:\MIS 321\project2freelance-music-\api\FreelanceMusicAPI\bin\Debug\net8.0\Freel
 C:\MIS 321\project2freelance-music-\api\FreelanceMusicAPI\bin\Debug\net8.0\FreelanceMusicAPI.runtimeconfig.json
 C:\MIS 321\project2freelance-music-\api\FreelanceMusicAPI\bin\Debug\net8.0\FreelanceMusicAPI.dll
 C:\MIS 321\project2freelance-music-\api\FreelanceMusicAPI\bin\Debug\net8.0\FreelanceMusicAPI.pdb
-C:\MIS 321\project2freelance-music-\api\FreelanceMusicAPI\bin\Debug\net8.0\BCrypt.Net-Next.dll
 C:\MIS 321\project2freelance-music-\api\FreelanceMusicAPI\bin\Debug\net8.0\Microsoft.AspNetCore.OpenApi.dll
 C:\MIS 321\project2freelance-music-\api\FreelanceMusicAPI\bin\Debug\net8.0\Microsoft.Data.Sqlite.dll
 C:\MIS 321\project2freelance-music-\api\FreelanceMusicAPI\bin\Debug\net8.0\Microsoft.OpenApi.dll
@@ -58,3 +57,4 @@ C:\MIS 321\project2freelance-music-\api\FreelanceMusicAPI\obj\Debug\net8.0\refin
 C:\MIS 321\project2freelance-music-\api\FreelanceMusicAPI\obj\Debug\net8.0\FreelanceMusicAPI.pdb
 C:\MIS 321\project2freelance-music-\api\FreelanceMusicAPI\obj\Debug\net8.0\FreelanceMusicAPI.genruntimeconfig.cache
 C:\MIS 321\project2freelance-music-\api\FreelanceMusicAPI\obj\Debug\net8.0\ref\FreelanceMusicAPI.dll
+C:\MIS 321\project2freelance-music-\api\FreelanceMusicAPI\bin\Debug\net8.0\BCrypt.Net-Next.dll
