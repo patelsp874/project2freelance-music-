@@ -6,66 +6,137 @@
     <title>Freelance Music</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="resources/styles/index.css">
 </head>
 <body>
-    <!-- Loading Screen -->
-    <div id="loadingScreen" class="loading-screen">
+    <!-- Enhanced Loading Screen -->
+    <div id="loadingScreen" class="loading-screen" style="display: flex; opacity: 1; visibility: visible;">
+        <!-- Animated Background -->
+        <div class="loading-background">
+            <div class="loading-waves">
+                <div class="wave wave-1"></div>
+                <div class="wave wave-2"></div>
+                <div class="wave wave-3"></div>
+            </div>
+            <div class="loading-stars">
+                <div class="star"></div>
+                <div class="star"></div>
+                <div class="star"></div>
+                <div class="star"></div>
+                <div class="star"></div>
+                <div class="star"></div>
+                <div class="star"></div>
+                <div class="star"></div>
+            </div>
+        </div>
+        
+        <!-- Main Loading Content -->
         <div class="loading-content">
+            <!-- Logo Section -->
             <div class="loading-logo-container">
                 <div class="loading-logo">
-                    <svg width="80" height="80" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <defs>
-                            <linearGradient id="loadingLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                <stop offset="0%" style="stop-color:#1A4D2E;stop-opacity:1" />
-                                <stop offset="50%" style="stop-color:#2D5A3D;stop-opacity:1" />
-                                <stop offset="100%" style="stop-color:#c9a33a;stop-opacity:1" />
-                            </linearGradient>
-                            <filter id="loadingGlow">
-                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-                                <feMerge> 
-                                    <feMergeNode in="coloredBlur"/>
-                                    <feMergeNode in="SourceGraphic"/>
-                                </feMerge>
-                            </filter>
-                        </defs>
-                        <!-- Musical note with creative styling -->
-                        <circle cx="20" cy="20" r="18" fill="url(#loadingLogoGradient)" filter="url(#loadingGlow)"/>
-                        <circle cx="20" cy="20" r="15" fill="none" stroke="white" stroke-width="1" opacity="0.3"/>
-                        
-                        <!-- Musical note -->
-                        <path d="M26 12v12c0 2.2-1.8 4-4 4s-4-1.8-4-4c0-2.2 1.8-4 4-4 .5 0 1 .1 1.4.3V12h2.6z" fill="white"/>
-                        <path d="M26 12v12c0 2.2-1.8 4-4 4s-4-1.8-4-4c0-2.2 1.8-4 4-4 .5 0 1 .1 1.4.3V12h2.6z" fill="none" stroke="#1A4D2E" stroke-width="0.5"/>
-                        
-                        <!-- Decorative elements -->
-                        <circle cx="12" cy="12" r="1.5" fill="white" opacity="0.6"/>
-                        <circle cx="28" cy="12" r="1" fill="white" opacity="0.4"/>
-                        <circle cx="12" cy="28" r="1" fill="white" opacity="0.4"/>
-                        <circle cx="28" cy="28" r="1.5" fill="white" opacity="0.6"/>
-                    </svg>
+                    <div class="logo-ring">
+                        <div class="logo-ring-inner"></div>
+                    </div>
+                    <div class="logo-core">
+                        <svg width="60" height="60" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <linearGradient id="loadingLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#1A4D2E;stop-opacity:1" />
+                                    <stop offset="50%" style="stop-color:#2D5A3D;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#c9a33a;stop-opacity:1" />
+                                </linearGradient>
+                                <filter id="loadingGlow">
+                                    <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+                                    <feMerge> 
+                                        <feMergeNode in="coloredBlur"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+                            </defs>
+                            <!-- Musical note with enhanced styling -->
+                            <circle cx="20" cy="20" r="16" fill="url(#loadingLogoGradient)" filter="url(#loadingGlow)"/>
+                            <circle cx="20" cy="20" r="13" fill="none" stroke="white" stroke-width="1.5" opacity="0.4"/>
+                            
+                            <!-- Musical note -->
+                            <path d="M26 12v12c0 2.2-1.8 4-4 4s-4-1.8-4-4c0-2.2 1.8-4 4-4 .5 0 1 .1 1.4.3V12h2.6z" fill="white"/>
+                            <path d="M26 12v12c0 2.2-1.8 4-4 4s-4-1.8-4-4c0-2.2 1.8-4 4-4 .5 0 1 .1 1.4.3V12h2.6z" fill="none" stroke="#1A4D2E" stroke-width="0.5"/>
+                            
+                            <!-- Enhanced decorative elements -->
+                            <circle cx="12" cy="12" r="1.5" fill="white" opacity="0.8"/>
+                            <circle cx="28" cy="12" r="1" fill="white" opacity="0.6"/>
+                            <circle cx="12" cy="28" r="1" fill="white" opacity="0.6"/>
+                            <circle cx="28" cy="28" r="1.5" fill="white" opacity="0.8"/>
+                        </svg>
+                    </div>
                 </div>
+                
+                <!-- Brand Text with Enhanced Typography -->
                 <div class="loading-brand-text">
-                    <div class="loading-brand-main">Freelance</div>
-                    <div class="loading-brand-sub">Music</div>
+                    <div class="loading-brand-main">
+                        <span class="brand-letter">F</span>
+                        <span class="brand-letter">r</span>
+                        <span class="brand-letter">e</span>
+                        <span class="brand-letter">e</span>
+                        <span class="brand-letter">l</span>
+                        <span class="brand-letter">a</span>
+                        <span class="brand-letter">n</span>
+                        <span class="brand-letter">c</span>
+                        <span class="brand-letter">e</span>
+                    </div>
+                    <div class="loading-brand-sub">
+                        <span class="brand-letter">M</span>
+                        <span class="brand-letter">u</span>
+                        <span class="brand-letter">s</span>
+                        <span class="brand-letter">i</span>
+                        <span class="brand-letter">c</span>
+                    </div>
                     <div class="loading-brand-tagline">Where Talent Meets Opportunity</div>
                 </div>
             </div>
-            <div class="loading-spinner-container">
-                <div class="loading-spinner"></div>
+            
+            <!-- Enhanced Loading Indicators -->
+            <div class="loading-indicators">
+                <!-- Modern Spinner -->
+                <div class="loading-spinner-container">
+                    <div class="loading-spinner">
+                        <div class="spinner-ring"></div>
+                        <div class="spinner-ring"></div>
+                        <div class="spinner-ring"></div>
+                    </div>
+                </div>
+                
+                <!-- Progress Bar -->
+                <div class="loading-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <div class="progress-text">Loading your music experience...</div>
+                </div>
+                
+                <!-- Animated Dots -->
                 <div class="loading-dots">
+                    <span></span>
+                    <span></span>
                     <span></span>
                     <span></span>
                     <span></span>
                 </div>
             </div>
         </div>
-        <div class="loading-particles">
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
-            <div class="particle"></div>
+        
+        <!-- Floating Elements -->
+        <div class="loading-floating-elements">
+            <div class="floating-note note-1">♪</div>
+            <div class="floating-note note-2">♫</div>
+            <div class="floating-note note-3">♪</div>
+            <div class="floating-note note-4">♫</div>
+            <div class="floating-note note-5">♪</div>
+            <div class="floating-note note-6">♫</div>
         </div>
     </div>
     <header class="site-header">
@@ -111,8 +182,16 @@
                 </div>
             </a>
             <nav class="main-nav">
-                <a href="#student-dashboard" id="studentDashboardLink" class="nav-link d-none" onclick="showPage('student-dashboard')">For Learners</a>
-                <a href="#teacher-dashboard" id="teacherDashboardLink" class="nav-link d-none" onclick="showPage('teacher-dashboard')">For Teachers</a>
+                <a href="#student-dashboard" id="studentDashboardLink" class="nav-link learners-btn d-none" onclick="showPage('student-dashboard')">
+                    <span class="btn-icon">🎓</span>
+                    <span class="btn-text">For Learners</span>
+                    <div class="btn-glow"></div>
+                </a>
+                <a href="#teacher-dashboard" id="teacherDashboardLink" class="nav-link teachers-btn d-none" onclick="showPage('teacher-dashboard')">
+                    <span class="btn-icon">👨‍🏫</span>
+                    <span class="btn-text">For Teachers</span>
+                    <div class="btn-glow"></div>
+                </a>
                 <a href="#admin-dashboard" id="adminDashboardLink" class="nav-link d-none" onclick="showPage('admin-dashboard')">Admin Dashboard</a>
                 <span class="nav-divider"></span>
                 <div class="auth-actions d-flex align-items-center">
@@ -142,6 +221,7 @@
                                 <p class="text-muted mb-0">Comprehensive analytics and reporting for Freelance Music platform</p>
                             </div>
                             <div>
+                                <button class="btn btn-outline-primary me-2" onclick="refreshAdminStats()"><i class="fas fa-sync-alt me-1"></i> Refresh Stats</button>
                                 <a href="#home" class="btn btn-outline-secondary" onclick="showPage('home')"><i class="fas fa-arrow-left me-1"></i> Back to Home</a>
                             </div>
                         </div>
@@ -442,12 +522,11 @@
         <div id="teacher-dashboard" class="page-content d-none">
             <div class="container-fluid py-4">
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
-                    <div>
+                    <div class="flex-grow-1 text-end">
                         <h1 class="h2 mb-0">Teacher Dashboard</h1>
                         <p class="text-muted mb-0">Manage your teaching profile and lessons</p>
                     </div>
                     <div>
-                        <button class="btn btn-outline-primary me-2" onclick="refreshTeacherStats()"><i class="fas fa-sync-alt me-1"></i> Refresh Stats</button>
                         <a href="#home" class="btn btn-outline-secondary" onclick="showPage('home')"><i class="fas fa-arrow-left me-1"></i> Back to Home</a>
                     </div>
                 </div>
@@ -521,22 +600,7 @@
                 <div id="teacher-dashboard-content" class="d-none">
                     <!-- Dashboard Stats -->
                     <div class="row g-3 mb-4">
-                        <div class="col-md-3">
-                            <div class="card bg-primary text-white">
-                                <div class="card-body">
-                                    <div class="d-flex align-items-center">
-                                        <div class="flex-shrink-0">
-                                            <i class="fas fa-users fa-2x"></i>
-                                        </div>
-                                        <div class="flex-grow-1 ms-3">
-                                            <h6 class="card-title mb-0">Total Students</h6>
-                                            <h4 class="mb-0" id="totalStudents">0</h4>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <div class="card bg-success text-white">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center">
@@ -551,7 +615,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <div class="card bg-warning text-white">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center">
@@ -566,7 +630,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <div class="card bg-info text-white">
                                 <div class="card-body">
                                     <div class="d-flex align-items-center">
@@ -587,30 +651,82 @@
                     </div>
 
                     <!-- Quick Actions -->
-                    <div class="row g-3 mb-4">
+                    <div class="row g-4 mb-4">
                         <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5 class="mb-0"><i class="fas fa-calendar-plus me-2"></i>Set Availability</h5>
+                            <div class="card teacher-action-card availability-card">
+                                <div class="card-header bg-gradient-primary text-white">
+                                    <div class="d-flex align-items-center">
+                                        <div class="action-icon me-3">
+                                            <i class="fas fa-calendar-plus fa-2x"></i>
+                                        </div>
+                                        <div>
+                                            <h5 class="mb-0">Set Availability</h5>
+                                            <small class="opacity-75">Manage your teaching schedule</small>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="card-body">
-                                    <p class="text-muted">Manage your weekly availability schedule</p>
-                                    <button class="btn btn-outline-primary" onclick="showAvailabilityModal()">
-                                        <i class="fas fa-clock me-1"></i>Manage Schedule
-                                    </button>
+                                <div class="card-body p-4">
+                                    <div class="action-content">
+                                        <div class="action-description mb-4">
+                                            <p class="text-muted mb-3">Configure your weekly availability to allow students to book lessons with you.</p>
+                                            <div class="feature-list">
+                                                <div class="feature-item">
+                                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                                    <span>Set daily time slots</span>
+                                                </div>
+                                                <div class="feature-item">
+                                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                                    <span>Manage weekly schedule</span>
+                                                </div>
+                                                <div class="feature-item">
+                                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                                    <span>Update availability anytime</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-primary btn-lg w-100 action-btn" onclick="showAvailabilityModal()">
+                                            <i class="fas fa-clock me-2"></i>Manage Schedule
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                         <div class="col-md-6">
-                            <div class="card">
-                                <div class="card-header">
-                                    <h5 class="mb-0"><i class="fas fa-edit me-2"></i>Update Profile</h5>
+                            <div class="card teacher-action-card profile-card">
+                                <div class="card-header bg-gradient-success text-white">
+                                    <div class="d-flex align-items-center">
+                                        <div class="action-icon me-3">
+                                            <i class="fas fa-user-edit fa-2x"></i>
+                                        </div>
+                                        <div>
+                                            <h5 class="mb-0">Update Profile</h5>
+                                            <small class="opacity-75">Customize your teaching profile</small>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="card-body">
-                                    <p class="text-muted">Edit your teaching profile and rates</p>
-                                    <button class="btn btn-outline-primary" onclick="showEditProfileModal()">
-                                        <i class="fas fa-user-edit me-1"></i>Edit Profile
-                                    </button>
+                                <div class="card-body p-4">
+                                    <div class="action-content">
+                                        <div class="action-description mb-4">
+                                            <p class="text-muted mb-3">Keep your teaching profile up-to-date to attract more students.</p>
+                                            <div class="feature-list">
+                                                <div class="feature-item">
+                                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                                    <span>Update bio and experience</span>
+                                                </div>
+                                                <div class="feature-item">
+                                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                                    <span>Set lesson rates</span>
+                                                </div>
+                                                <div class="feature-item">
+                                                    <i class="fas fa-check-circle text-success me-2"></i>
+                                                    <span>Manage teaching preferences</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-success btn-lg w-100 action-btn" onclick="showEditProfileModal()">
+                                            <i class="fas fa-user-edit me-2"></i>Edit Profile
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -635,129 +751,222 @@
 
         <!-- Student Dashboard -->
         <div id="student-dashboard" class="page-content d-none">
+            <!-- Enhanced Dashboard Background -->
+            <div class="dashboard-gradient-bg"></div>
+            
             <div class="container-fluid py-4">
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
-                    <div>
-                        <h1 class="h2 mb-0">Student Dashboard</h1>
-                        <p class="text-muted mb-0">Create your profile, find teachers, and book lessons</p>
+                <!-- Welcome Banner -->
+                <div class="welcome-banner fade-in-up">
+                    <div class="banner-content">
+                        <h1 class="dashboard-title">
+                            <span class="welcome-icon">🎵</span>
+                            <span id="studentWelcomeText">Welcome back, Student!</span>
+                        </h1>
+                        <p class="dashboard-subtitle">Ready to book your next lesson?</p>
                     </div>
-                    <div>
-                        <a href="#home" class="btn btn-outline-secondary" onclick="showPage('home')"><i class="fas fa-arrow-left me-1"></i> Back to Home</a>
+                    <div class="banner-actions">
+                        <a href="#home" class="btn btn-outline-light" onclick="showPage('home')">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Home
+                        </a>
                     </div>
                 </div>
 
-                <!-- Tabs -->
-                <ul class="nav nav-tabs mb-4" id="studentTabs" role="tablist">
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#s-profile" type="button" role="tab">Create Profile</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#s-schedule" type="button" role="tab">Schedule Lessons</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#s-search" type="button" role="tab">Search by Instrument</button>
-                    </li>
-                    <li class="nav-item" role="presentation">
-                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#s-payment" type="button" role="tab">Payment</button>
-                    </li>
-                </ul>
+                <!-- Enhanced Navigation -->
+                <div class="dashboard-nav">
+                    <div class="nav-tabs-enhanced" role="tablist">
+                        <button class="nav-tab active" data-target="dashboard" role="tab">
+                            <i class="fas fa-home"></i>
+                            <span>Dashboard</span>
+                        </button>
+                        <button class="nav-tab" data-target="find-teachers" role="tab">
+                            <i class="fas fa-search"></i>
+                            <span>Find Teachers</span>
+                        </button>
+                        <button class="nav-tab" data-target="my-bookings" role="tab">
+                            <i class="fas fa-calendar-check"></i>
+                            <span>My Bookings</span>
+                        </button>
+                        <button class="nav-tab" data-target="profile" role="tab">
+                            <i class="fas fa-user"></i>
+                            <span>Profile</span>
+                        </button>
+                        <button class="nav-tab" data-target="payments" role="tab">
+                            <i class="fas fa-credit-card"></i>
+                            <span>Payments</span>
+                        </button>
+                    </div>
+                </div>
 
-                <div class="tab-content">
-                    <!-- Profile -->
-                    <div class="tab-pane fade show active" id="s-profile" role="tabpanel">
-                        <div class="row g-3">
-                            <div class="col-lg-6">
-                                <div class="card">
-                                    <div class="card-header"><h5 class="mb-0">Student Profile</h5></div>
-                                    <div class="card-body">
-                                        <div class="mb-3">
-                                            <label class="form-label">Full Name</label>
-                                            <input type="text" id="sName" class="form-control" placeholder="John Smith">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Instrument</label>
-                                            <input type="text" id="sInstrument" class="form-control" placeholder="Guitar, Piano, Violin...">
-                                        </div>
-                                        <div class="mb-3">
-                                            <label class="form-label">Contact Email</label>
-                                            <input type="email" id="sEmail" class="form-control" placeholder="you@example.com">
-                                        </div>
-                                        <button class="btn btn-primary" onclick="saveStudentProfile()">Save Profile</button>
-                                    </div>
+                <!-- Enhanced Tab Content -->
+                <div class="dashboard-content">
+                    <!-- Dashboard Overview -->
+                    <div class="tab-panel active" id="dashboard-panel">
+                        <div class="dashboard-stats">
+                            <div class="stat-card fade-in-up">
+                                <div class="stat-icon">
+                                    <i class="fas fa-book-open"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3 id="totalLessons">0</h3>
+                                    <p>Lessons Booked</p>
                                 </div>
                             </div>
-                            <div class="col-lg-6">
-                                <div class="card">
-                                    <div class="card-header"><h5 class="mb-0">Profile Summary</h5></div>
-                                    <div class="card-body" id="sProfileSummary">
-                                        <p class="text-muted mb-0">Your saved profile will appear here.</p>
-                                    </div>
+                            <div class="stat-card fade-in-up">
+                                <div class="stat-icon">
+                                    <i class="fas fa-chalkboard-teacher"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3 id="activeTeachers">0</h3>
+                                    <p>Active Teachers</p>
+                                </div>
+                            </div>
+                            <div class="stat-card fade-in-up">
+                                <div class="stat-icon">
+                                    <i class="fas fa-music"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3 id="instrumentsLearned">0</h3>
+                                    <p>Instruments</p>
+                                </div>
+                            </div>
+                            <div class="stat-card fade-in-up">
+                                <div class="stat-icon">
+                                    <i class="fas fa-star"></i>
+                                </div>
+                                <div class="stat-content">
+                                    <h3 id="progressScore">0%</h3>
+                                    <p>Progress</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="dashboard-widgets">
+                            <div class="widget-card fade-in-up">
+                                <h4>Recent Activity</h4>
+                                <div id="recentActivity">
+                                    <p class="text-muted">No recent activity</p>
+                                </div>
+                            </div>
+                            <div class="widget-card fade-in-up">
+                                <h4>Upcoming Lessons</h4>
+                                <div id="upcomingLessons">
+                                    <p class="text-muted">No upcoming lessons</p>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Schedule Lessons -->
-                    <div class="tab-pane fade" id="s-schedule" role="tabpanel">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div class="btn-group" role="group">
-                                <button type="button" class="btn btn-outline-primary active" onclick="showStudentScheduleView('table')">Table View</button>
-                                <button type="button" class="btn btn-outline-primary" onclick="showStudentScheduleView('calendar')">Calendar View</button>
-                            </div>
-                            <div>
-                                <select id="lessonType" class="form-select">
-                                    <option value="virtual">Virtual</option>
-                                    <option value="in-person">In-Person</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div id="sScheduleTable"></div>
-                        <div id="sScheduleCalendar" class="d-none"></div>
-                    </div>
-
-                    <!-- Search by Instrument -->
-                    <div class="tab-pane fade" id="s-search" role="tabpanel">
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">
-                                <input type="text" id="sSearchInstrument" class="form-control" placeholder="e.g., Guitar">
-                            </div>
-                            <div class="col-md-6">
-                                <button class="btn btn-primary" onclick="filterTeachersByInstrument()">Search</button>
-                            </div>
-                        </div>
-                        <div id="sTeachersGrid"></div>
-                    </div>
-
-                    <!-- Payment -->
-                    <div class="tab-pane fade" id="s-payment" role="tabpanel">
-                        <div class="row g-3">
-                            <div class="col-lg-6">
-                                <div class="card">
-                                    <div class="card-header"><h5 class="mb-0">Card Verification</h5></div>
-                                    <div class="card-body">
-                                        <div class="mb-3">
-                                            <label class="form-label">Card Number</label>
-                                            <input type="text" id="cardNumber" class="form-control" placeholder="4111 1111 1111 1111">
-                                        </div>
-                                        <div class="row g-2 mb-3">
-                                            <div class="col-6">
-                                                <label class="form-label">Expiry (MM/YY)</label>
-                                                <input type="text" id="cardExpiry" class="form-control" placeholder="12/27">
-                                            </div>
-                                            <div class="col-6">
-                                                <label class="form-label">CVV</label>
-                                                <input type="text" id="cardCvv" class="form-control" placeholder="123">
-                                            </div>
-                                        </div>
-                                        <button class="btn btn-primary" onclick="verifyStudentCard()">Verify Card</button>
-                                    </div>
+                    <!-- Find Teachers Section -->
+                    <div class="tab-panel" id="find-teachers-panel">
+                        <div class="teachers-header">
+                            <div class="search-section">
+                                <div class="search-bar-container">
+                                    <i class="fas fa-search search-icon"></i>
+                                    <input type="text" id="teacherSearchInput" class="search-input" placeholder="Search by instrument or teacher name...">
+                                </div>
+                                <div class="filter-section">
+                                    <select id="instrumentFilter" class="filter-select">
+                                        <option value="">All Instruments</option>
+                                        <option value="Guitar">🎸 Guitar</option>
+                                        <option value="Piano">🎹 Piano</option>
+                                        <option value="Violin">🎻 Violin</option>
+                                        <option value="Drums">🥁 Drums</option>
+                                        <option value="Bass">🎸 Bass</option>
+                                        <option value="Saxophone">🎷 Saxophone</option>
+                                    </select>
                                 </div>
                             </div>
-                            <div class="col-lg-6">
-                                <div class="card">
-                                    <div class="card-header"><h5 class="mb-0">Payment Summary</h5></div>
-                                    <div class="card-body" id="sPaymentSummary">
-                                        <p class="text-muted mb-0">No payments yet.</p>
+                            <div class="teachers-count">
+                                <span class="count-badge">
+                                    <i class="fas fa-users"></i>
+                                    <span id="teachersCount">0</span> Available Teachers
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <div class="teachers-grid" id="teachersGrid">
+                            <!-- Teachers will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- My Bookings Section -->
+                    <div class="tab-panel" id="my-bookings-panel">
+                        <div class="bookings-header">
+                            <h3>My Bookings</h3>
+                            <div class="progress-tracker">
+                                <div class="progress-info">
+                                    <span id="lessonsCompleted">0</span>/<span id="totalBooked">0</span> lessons completed this week
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="progressFill"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="bookings-content" id="myBookingsContent">
+                            <!-- Bookings will be loaded here -->
+                        </div>
+                    </div>
+
+                    <!-- Profile Section -->
+                    <div class="tab-panel" id="profile-panel">
+                        <div class="profile-section">
+                            <div class="profile-card fade-in-up">
+                                <div class="profile-header">
+                                    <div class="profile-avatar">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <div class="profile-info">
+                                        <h3>Student Profile</h3>
+                                        <p>Manage your personal information</p>
+                                    </div>
+                                </div>
+                                <div class="profile-form">
+                                    <div class="form-group">
+                                        <label class="form-label">Full Name</label>
+                                        <input type="text" id="sName" class="form-control" placeholder="John Smith">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Instrument</label>
+                                        <input type="text" id="sInstrument" class="form-control" placeholder="Guitar, Piano, Violin...">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Contact Email</label>
+                                        <input type="email" id="sEmail" class="form-control" placeholder="you@example.com">
+                                    </div>
+                                    <button class="btn btn-primary" onclick="saveStudentProfile()">
+                                        <i class="fas fa-save me-2"></i>Save Profile
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="profile-summary fade-in-up">
+                                <h4>Profile Summary</h4>
+                                <div id="sProfileSummary">
+                                    <p class="text-muted">Your saved profile will appear here.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payments Section -->
+                    <div class="tab-panel" id="payments-panel">
+                        <div class="payments-section">
+                            <div class="payment-card fade-in-up">
+                                <div class="payment-header">
+                                    <h3>Payment Information</h3>
+                                    <p>Manage your payment methods and view transaction history</p>
+                                </div>
+                                <div class="payment-content">
+                                    <div class="payment-methods">
+                                        <h4>Payment Methods</h4>
+                                        <div class="method-list" id="paymentMethods">
+                                            <p class="text-muted">No payment methods added</p>
+                                        </div>
+                                    </div>
+                                    <div class="transaction-history">
+                                        <h4>Recent Transactions</h4>
+                                        <div class="transaction-list" id="transactionHistory">
+                                            <p class="text-muted">No recent transactions</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -868,6 +1077,9 @@
 
         <div id="home" class="page-content">
         <section id="hero" class="hero">
+            <!-- Animated Gradient Background -->
+            <div class="hero-gradient-bg"></div>
+            
             <div class="promo-ribbon">Limited time: Take a Trial Lesson — get $20 toward your next one</div>
             <div class="container hero-grid">
                 <div class="hero-copy">
@@ -880,27 +1092,39 @@
                         <span class="title-word" data-word="to">to</span>
                         <span class="title-word" data-word="be.">be.</span>
                     </h1>
-                    <p class="hero-subtitle">Live, one‑on‑one music lessons designed around you — your goals, your schedule, your sound.</p>
+                    <p class="hero-subtitle typewriter-text">Live, one‑on‑one music lessons designed around you — your goals, your schedule, your sound.</p>
                     <div class="hero-actions">
-                        <a href="#process" class="btn btn-primary btn-hero interactive-btn">
+                        <a href="#process" class="btn btn-primary btn-hero interactive-btn scroll-in-btn">
                             <span class="btn-text">Get started</span>
                             <span class="btn-icon">🎵</span>
+                            <div class="btn-glow"></div>
                         </a>
-                        <a href="#values" class="btn btn-outline btn-hero interactive-btn">
+                        <a href="#values" class="btn btn-outline btn-hero interactive-btn scroll-in-btn">
                             <span class="btn-text">Why Freelance Music</span>
                             <span class="btn-icon">✨</span>
                         </a>
                     </div>
                     <div class="hero-stats">
                         <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-user-graduate"></i>
+                            </div>
                             <div class="stat-number" data-target="1000">0</div>
                             <div class="stat-label">Happy Students</div>
                         </div>
+                        <div class="stat-separator"></div>
                         <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-chalkboard-teacher"></i>
+                            </div>
                             <div class="stat-number" data-target="50">0</div>
                             <div class="stat-label">Expert Teachers</div>
                         </div>
+                        <div class="stat-separator"></div>
                         <div class="stat-item">
+                            <div class="stat-icon">
+                                <i class="fas fa-music"></i>
+                            </div>
                             <div class="stat-number" data-target="15">0</div>
                             <div class="stat-label">Instruments</div>
                         </div>
@@ -908,6 +1132,21 @@
                     <div class="hero-notes">Superior audio • Curated teachers • Simple scheduling</div>
                 </div>
                 <div class="hero-visual" aria-hidden="true">
+                    <!-- Image Carousel -->
+                    <div class="hero-carousel">
+                        <div class="carousel-slide active">
+                            <div class="carousel-image" style="background-image: url('https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?q=80&w=1000&auto=format&fit=crop');"></div>
+                        </div>
+                        <div class="carousel-slide">
+                            <div class="carousel-image" style="background-image: url('https://images.unsplash.com/photo-1510915361894-db8b60106cb1?q=80&w=1000&auto=format&fit=crop');"></div>
+                        </div>
+                        <div class="carousel-slide">
+                            <div class="carousel-image" style="background-image: url('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=1000&auto=format&fit=crop');"></div>
+                        </div>
+                        <div class="carousel-slide">
+                            <div class="carousel-image" style="background-image: url('https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?q=80&w=1000&auto=format&fit=crop');"></div>
+                        </div>
+                    </div>
                     <div class="music-visualization">
                         <div class="music-note note-1">♪</div>
                         <div class="music-note note-2">♫</div>
@@ -933,59 +1172,69 @@
                 <h2 class="section-title">Our Values</h2>
                 <p class="section-lead">Quality. Respect. Progress. We champion meaningful music journeys.</p>
                 <div class="grid">
-                    <div class="card image-card">
+                    <div class="card image-card values-card" data-tooltip="See how we ensure excellence">
                         <div class="image image-1" aria-hidden="true"></div>
-                        <h3 class="card-title">Excellence</h3>
-                        <p>We value craft. Every lesson aims to be the best hour of your week.</p>
+                        <div class="card-content">
+                            <h3 class="card-title">Excellence</h3>
+                            <p>We value craft. Every lesson aims to be the best hour of your week.</p>
+                        </div>
+                        <div class="card-hover-overlay"></div>
                     </div>
-                    <div class="card image-card">
+                    <div class="card image-card values-card" data-tooltip="Learn about our respectful approach">
                         <div class="image image-2" aria-hidden="true"></div>
-                        <h3 class="card-title">Respect</h3>
-                        <p>We build trust between learners and teachers with clarity and care.</p>
+                        <div class="card-content">
+                            <h3 class="card-title">Respect</h3>
+                            <p>We build trust between learners and teachers with clarity and care.</p>
+                        </div>
+                        <div class="card-hover-overlay"></div>
                     </div>
-                    <div class="card image-card">
+                    <div class="card image-card values-card" data-tooltip="Discover our growth philosophy">
                         <div class="image image-3" aria-hidden="true"></div>
-                        <h3 class="card-title">Growth</h3>
-                        <p>Small steps, consistent practice, and celebrating each milestone.</p>
+                        <div class="card-content">
+                            <h3 class="card-title">Growth</h3>
+                            <p>Small steps, consistent practice, and celebrating each milestone.</p>
+                        </div>
+                        <div class="card-hover-overlay"></div>
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- Culture Section -->
-        <section id="culture" class="section reveal">
+        <section id="culture" class="section reveal culture-section">
             <div class="container">
-                <h2 class="section-title">Our Culture</h2>
+                <h2 class="section-title culture-title">Our Culture</h2>
                 <p class="section-lead">Welcoming, focused, and human. We keep things simple and supportive.</p>
                 <div class="culture-wrap">
-                    <div class="culture-text">
+                    <div class="culture-text fade-in-left">
                         <p>Freelance Music is a place where curiosity meets discipline. We celebrate the courage to start, the patience to continue, and the pride of performing. Our space is inclusive, our tools are thoughtful, and our tone is always respectful.</p>
                         <p>Whether you're preparing for your first recital or your next recording, we aim to make each interaction smooth, encouraging, and effective.</p>
                     </div>
-                    <div class="culture-visual parallax" aria-hidden="true"></div>
+                    <div class="culture-visual parallax" aria-hidden="true" data-parallax-speed="0.5"></div>
                 </div>
             </div>
         </section>
 
         <!-- Impact Section -->
-        <section id="impact" class="section alt reveal">
+        <section id="impact" class="section alt reveal impact-section">
+            <div class="impact-gradient-bg"></div>
             <div class="container">
                 <h2 class="section-title">Our Impact</h2>
                 <p class="section-lead">Making music education accessible and joyful—one lesson at a time.</p>
                 <div class="impact-grid">
-                    <div class="impact-card">
+                    <div class="impact-card fade-up">
                         <div class="impact-num">50k+</div>
                         <div class="impact-label">Lessons completed</div>
                     </div>
-                    <div class="impact-card">
+                    <div class="impact-card fade-up">
                         <div class="impact-num">10k+</div>
                         <div class="impact-label">Happy learners</div>
                     </div>
-                    <div class="impact-card">
+                    <div class="impact-card fade-up">
                         <div class="impact-num">2k+</div>
                         <div class="impact-label">Professional teachers</div>
                     </div>
-                    <div class="impact-card">
+                    <div class="impact-card fade-up">
                         <div class="impact-num">95%</div>
                         <div class="impact-label">Satisfaction rate</div>
                     </div>
@@ -1016,41 +1265,50 @@
         </section>
 
         <!-- How It Works Section -->
-        <section id="process" class="section alt reveal">
+        <section id="process" class="section alt reveal process-section">
             <div class="container">
                 <h2 class="section-title">How Freelance Music Works</h2>
                 <p class="section-lead">A simple flow, designed for momentum.</p>
-                <ol class="timeline">
-                    <li class="step">
-                        <span class="step-badge">1</span>
+                <div class="process-timeline">
+                    <div class="process-step" data-step="1">
+                        <div class="step-icon">
+                            <i class="fas fa-bullseye"></i>
+                        </div>
                         <div class="step-content">
                             <h3>Tell us your goals</h3>
                             <p>Share your instrument, level, and what you want to achieve.</p>
                         </div>
-                    </li>
-                    <li class="step">
-                        <span class="step-badge">2</span>
+                    </div>
+                    <div class="process-step" data-step="2">
+                        <div class="step-icon">
+                            <i class="fas fa-user-friends"></i>
+                        </div>
                         <div class="step-content">
                             <h3>Match with a teacher</h3>
                             <p>We help you find the right fit—style, schedule, and budget.</p>
                         </div>
-                    </li>
-                    <li class="step">
-                        <span class="step-badge">3</span>
+                    </div>
+                    <div class="process-step" data-step="3">
+                        <div class="step-icon">
+                            <i class="fas fa-calendar-check"></i>
+                        </div>
                         <div class="step-content">
                             <h3>Book and learn</h3>
                             <p>Choose a time, meet virtually or in-person, and start playing.</p>
                         </div>
-                    </li>
-                    <li class="step">
-                        <span class="step-badge">4</span>
+                    </div>
+                    <div class="process-step" data-step="4">
+                        <div class="step-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
                         <div class="step-content">
                             <h3>Track progress</h3>
                             <p>Receive feedback, resources, and next steps after each lesson.</p>
                         </div>
-                    </li>
-                </ol>
                     </div>
+                    <div class="progress-line"></div>
+                </div>
+            </div>
         </section>
     </main>
 
@@ -1148,31 +1406,49 @@
 
     <footer class="site-footer">
         <div class="container footer-inner">
-            <div>© <span id="year"></span> Freelance Music. All rights reserved.</div>
-            
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <h3>Freelance Music</h3>
+                    <p>Where Talent Meets Opportunity</p>
+                </div>
+                <div class="footer-social">
+                    <h4>Follow Us</h4>
+                    <div class="social-links">
+                        <a href="#" class="social-link" aria-label="Instagram">
+                            <i class="fab fa-instagram"></i>
+                        </a>
+                        <a href="#" class="social-link" aria-label="YouTube">
+                            <i class="fab fa-youtube"></i>
+                        </a>
+                        <a href="#" class="social-link" aria-label="LinkedIn">
+                            <i class="fab fa-linkedin"></i>
+                        </a>
+                        <a href="#" class="social-link" aria-label="Twitter">
+                            <i class="fab fa-twitter"></i>
+                        </a>
                     </div>
+                </div>
+                <div class="footer-links">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="#home">Home</a></li>
+                        <li><a href="#values">About</a></li>
+                        <li><a href="#process">How It Works</a></li>
+                        <li><a href="#contact">Contact</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="copyright">© <span id="year"></span> Freelance Music. All rights reserved.</div>
+            </div>
+        </div>
     </footer>
 
-    <!-- Loading Screen -->
-    <div id="loader" class="loader">
-        <div class="loader-inner">
-            <div class="logo-mark">FM</div>
-            <div class="spin-wrap">
-                <div class="spin-ring"></div>
-                <div class="spin-core"></div>
-                    </div>
-            <div class="eq">
-                <span></span><span></span><span></span><span></span><span></span>
-            </div>
-            <div class="loader-text">Loading your music experience...</div>
-        </div>
-        <!-- Floating musical notes in loader -->
-        <div class="note note-1">♪</div>
-        <div class="note note-2">♬</div>
-        <div class="note note-3">♫</div>
-        <div class="note note-4">♩</div>
-        <div class="loader-image" aria-hidden="true"></div>
-    </div>
+    <!-- Back to Top Button -->
+    <button id="backToTop" class="back-to-top" aria-label="Back to top">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
 
     <!-- Subtle floating notes in background -->
     <div class="bg-notes">

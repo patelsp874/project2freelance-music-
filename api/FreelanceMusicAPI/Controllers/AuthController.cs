@@ -1711,7 +1711,8 @@ namespace FreelanceMusicAPI.Controllers
                             s.student_name,
                             s.student_email,
                             ss.day,
-                            ss.created_at
+                            ss.created_at,
+                            t.instrument
                         FROM Student_Studying ss
                         JOIN Student s ON ss.student_id = s.student_id
                         JOIN Teacher t ON ss.teacher_id = t.teacher_id
@@ -1730,7 +1731,8 @@ namespace FreelanceMusicAPI.Controllers
                                 studentName = reader.GetString(1),
                                 studentEmail = reader.GetString(2),
                                 day = reader.GetString(3),
-                                createdAt = reader.GetString(4)
+                                createdAt = reader.GetString(4),
+                                instrument = reader.GetString(5)
                             });
                         }
                     }

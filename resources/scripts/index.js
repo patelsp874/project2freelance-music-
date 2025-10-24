@@ -3,14 +3,36 @@
 function hideLoadingScreen() {
     const loadingScreen = document.getElementById('loadingScreen');
     if (loadingScreen) {
+        console.log('Hiding loading screen...');
         loadingScreen.classList.add('fade-out');
         setTimeout(() => {
             loadingScreen.style.display = 'none';
-        }, 500);
+            console.log('Loading screen hidden');
+        }, 800); // Match CSS transition duration
     }
 }
 
-// Animated Counter for Stats
+function showLoadingScreen() {
+    const loadingScreen = document.getElementById('loadingScreen');
+    if (loadingScreen) {
+        loadingScreen.style.display = 'flex';
+        loadingScreen.style.opacity = '1';
+        loadingScreen.style.visibility = 'visible';
+        loadingScreen.classList.remove('fade-out');
+        console.log('Loading screen shown');
+    }
+}
+
+// Test function to manually show/hide loading screen
+window.testLoadingScreen = function() {
+    console.log('Testing loading screen...');
+    showLoadingScreen();
+    setTimeout(() => {
+        hideLoadingScreen();
+    }, 2000);
+};
+
+// Enhanced Animated Counter for Stats
 function animateCounters() {
     const counters = document.querySelectorAll('.stat-number');
     
@@ -28,6 +50,117 @@ function animateCounters() {
             }
             counter.textContent = Math.floor(current);
         }, 16);
+    });
+}
+
+// Hero Carousel Functionality
+function initHeroCarousel() {
+    const slides = document.querySelectorAll('.carousel-slide');
+    let currentSlide = 0;
+    
+    function showSlide(index) {
+        slides.forEach((slide, i) => {
+            slide.classList.toggle('active', i === index);
+        });
+    }
+    
+    function nextSlide() {
+        currentSlide = (currentSlide + 1) % slides.length;
+        showSlide(currentSlide);
+    }
+    
+    // Auto-advance carousel every 4 seconds
+    setInterval(nextSlide, 4000);
+    
+    // Initialize first slide
+    showSlide(0);
+}
+
+// Typewriter Effect
+function initTypewriterEffect() {
+    const typewriterElement = document.querySelector('.typewriter-text');
+    if (typewriterElement) {
+        const text = typewriterElement.textContent;
+        typewriterElement.textContent = '';
+        typewriterElement.style.borderRight = '2px solid #1A4D2E';
+        
+        let i = 0;
+        const typeWriter = () => {
+            if (i < text.length) {
+                typewriterElement.textContent += text.charAt(i);
+                i++;
+                setTimeout(typeWriter, 100);
+            } else {
+                // Keep blinking cursor
+                setInterval(() => {
+                    typewriterElement.style.borderRight = 
+                        typewriterElement.style.borderRight === '2px solid #1A4D2E' 
+                            ? '2px solid transparent' 
+                            : '2px solid #1A4D2E';
+                }, 750);
+            }
+        };
+        
+        setTimeout(typeWriter, 1000);
+    }
+}
+
+// Scroll Animations
+function initScrollAnimations() {
+    const observerOptions = {
+        threshold: 0.1,
+        rootMargin: '0px 0px -50px 0px'
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+            }
+        });
+    }, observerOptions);
+
+    // Observe elements for scroll animations
+    const animatedElements = document.querySelectorAll('.fade-up, .fade-in-left, .scroll-in-btn');
+    animatedElements.forEach(el => observer.observe(el));
+}
+
+// Back to Top Button
+function initBackToTop() {
+    const backToTopBtn = document.getElementById('backToTop');
+    
+    if (!backToTopBtn) return;
+    
+    // Show/hide button based on scroll position
+    window.addEventListener('scroll', () => {
+        if (window.pageYOffset > 300) {
+            backToTopBtn.classList.add('visible');
+        } else {
+            backToTopBtn.classList.remove('visible');
+        }
+    });
+    
+    // Smooth scroll to top
+    backToTopBtn.addEventListener('click', () => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'smooth'
+        });
+    });
+}
+
+// Parallax Effect
+function initParallax() {
+    const parallaxElements = document.querySelectorAll('[data-parallax-speed]');
+    
+    window.addEventListener('scroll', () => {
+        const scrolled = window.pageYOffset;
+        
+        parallaxElements.forEach(element => {
+            const speed = element.dataset.parallaxSpeed || 0.5;
+            const yPos = -(scrolled * speed);
+            element.style.transform = `translateY(${yPos}px)`;
+        });
     });
 }
 
@@ -94,14 +227,49 @@ if (!document.querySelector('style[data-ripple-css]')) {
 
 // Initialize everything when DOM is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    // Hide loading screen after 2 seconds
-    setTimeout(hideLoadingScreen, 2000);
+    console.log('DOM loaded, initializing...');
+    
+    // Ensure loading screen is visible initially
+    const loadingScreen = document.getElementById('loadingScreen');
+    if (loadingScreen) {
+        loadingScreen.style.display = 'flex';
+        loadingScreen.style.opacity = '1';
+        loadingScreen.style.visibility = 'visible';
+        loadingScreen.classList.remove('fade-out');
+        console.log('Loading screen initialized and visible');
+    }
+    
+    // Hide loading screen after 3 seconds (increased for better UX)
+    setTimeout(() => {
+        hideLoadingScreen();
+    }, 3000);
     
     // Initialize interactive elements
     initInteractiveButtons();
     
     // Initialize payment modal
     initializePaymentModal();
+    
+    // Initialize hero enhancements
+    initHeroCarousel();
+    initTypewriterEffect();
+    
+    // Initialize scroll animations
+    initScrollAnimations();
+    
+    // Initialize back to top button
+    initBackToTop();
+    
+    // Initialize parallax effects
+    initParallax();
+    
+    // Initialize student dashboard
+    initStudentDashboard();
+    
+    // Initialize enhanced learners button
+    initLearnersButton();
+    initTeachersButton();
+    addRippleAnimation();
     
     // Animate counters when hero section is visible
     const observer = new IntersectionObserver((entries) => {
@@ -1577,18 +1745,12 @@ async function loadTeacherStatistics() {
         if (!lessonsResult.success || !lessonsResult.lessons || lessonsResult.lessons.length === 0) {
             console.log('No lessons data found, setting defaults');
             // Set default values if no data
-            document.getElementById('totalStudents').textContent = '0';
             document.getElementById('weeklyLessons').textContent = '0';
             document.getElementById('monthlyEarnings').textContent = '$0';
             document.getElementById('teacherRating').textContent = '$0.00';
             return;
         }
 
-        // Calculate total unique students
-        const uniqueStudents = new Set(lessonsResult.lessons.map(lesson => lesson.studentEmail));
-        const totalStudents = uniqueStudents.size;
-        console.log('Unique students:', Array.from(uniqueStudents));
-        console.log('Total students count:', totalStudents);
         console.log('All lessons data:', lessonsResult.lessons);
 
         // Calculate this week's lessons (simplified - counting all lessons as this week for demo)
@@ -1602,13 +1764,11 @@ async function loadTeacherStatistics() {
         const adminFeePayment = weeklyLessons * adminFeePerLesson;
 
         // Update dashboard stats
-        document.getElementById('totalStudents').textContent = totalStudents;
         document.getElementById('weeklyLessons').textContent = weeklyLessons;
         document.getElementById('monthlyEarnings').textContent = `$${lessonEarnings.toFixed(2)}`;
         document.getElementById('teacherRating').textContent = `$${adminFeePayment.toFixed(2)}`;
 
         console.log('Updated teacher dashboard stats:', {
-            totalStudents,
             weeklyLessons,
             lessonEarnings,
             adminFeePayment
@@ -1617,25 +1777,17 @@ async function loadTeacherStatistics() {
     } catch (error) {
         console.error('Error loading teacher statistics:', error);
         // Set default values on error
-        document.getElementById('totalStudents').textContent = '0';
         document.getElementById('weeklyLessons').textContent = '0';
         document.getElementById('monthlyEarnings').textContent = '$0';
         document.getElementById('teacherRating').textContent = '$0.00';
     }
 }
 
-// Refresh teacher statistics function
-window.refreshTeacherStats = async function() {
-    console.log('Refreshing teacher statistics...');
-    showNotification('Refreshing statistics...', 'info');
-    await loadTeacherStatistics();
-    await loadTeacherLessons();
-    showNotification('Statistics updated!', 'success');
-};
 
 // Admin Dashboard Functions
 async function loadAdminDashboardStats() {
     try {
+        console.log('Loading admin dashboard stats...');
         const response = await fetch(`${API_BASE_URL}/Auth/admin/dashboard-stats`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1647,24 +1799,88 @@ async function loadAdminDashboardStats() {
         }
 
         const result = await response.json();
+        console.log('Admin dashboard stats result:', result);
         
-        if (result.success) {
-            // Update quick stats
-            document.getElementById('totalStudents').textContent = result.stats.totalStudents;
-            document.getElementById('totalTeachers').textContent = result.stats.totalTeachers;
-            document.getElementById('totalLessons').textContent = result.stats.totalLessons;
-            document.getElementById('totalRevenue').textContent = `$${result.stats.totalRevenue.toFixed(2)}`;
-            document.getElementById('totalInstruments').textContent = result.stats.totalInstruments;
-            document.getElementById('repeatLessonPercentage').textContent = `${result.stats.repeatLessonPercentage}%`;
+        if (result.success && result.stats) {
+            // Update quick stats with real-time data
+            const totalStudentsEl = document.getElementById('totalStudents');
+            const totalTeachersEl = document.getElementById('totalTeachers');
+            const totalLessonsEl = document.getElementById('totalLessons');
+            const totalRevenueEl = document.getElementById('totalRevenue');
+            const totalInstrumentsEl = document.getElementById('totalInstruments');
+            const repeatPercentageEl = document.getElementById('repeatLessonPercentage');
+
+            if (totalStudentsEl) {
+                totalStudentsEl.textContent = result.stats.totalStudents;
+                console.log('Updated totalStudents:', result.stats.totalStudents);
+            }
+            if (totalTeachersEl) {
+                totalTeachersEl.textContent = result.stats.totalTeachers;
+                console.log('Updated totalTeachers:', result.stats.totalTeachers);
+            }
+            if (totalLessonsEl) {
+                totalLessonsEl.textContent = result.stats.totalLessons;
+                console.log('Updated totalLessons:', result.stats.totalLessons);
+            }
+            if (totalRevenueEl) {
+                totalRevenueEl.textContent = `$${result.stats.totalRevenue.toFixed(2)}`;
+                console.log('Updated totalRevenue:', result.stats.totalRevenue);
+            }
+            if (totalInstrumentsEl) {
+                totalInstrumentsEl.textContent = result.stats.totalInstruments;
+                console.log('Updated totalInstruments:', result.stats.totalInstruments);
+            }
+            if (repeatPercentageEl) {
+                repeatPercentageEl.textContent = `${result.stats.repeatLessonPercentage}%`;
+                console.log('Updated repeatLessonPercentage:', result.stats.repeatLessonPercentage);
+            }
+        } else {
+            console.error('Invalid response format:', result);
         }
     } catch (error) {
         console.error('Error loading admin dashboard stats:', error);
     }
 }
 
+// Refresh admin statistics
+window.refreshAdminStats = async function() {
+    console.log('Refreshing admin statistics...');
+    showNotification('Refreshing statistics...', 'info');
+    await loadAdminDashboardStats();
+    await loadRevenueReport();
+    showNotification('Statistics updated!', 'success');
+};
+
+// Refresh teacher dashboard data
+async function refreshTeacherDashboardData() {
+    try {
+        console.log('Refreshing teacher dashboard data...');
+        showNotification('Refreshing dashboard data...', 'info');
+        
+        // Refresh statistics
+        await loadTeacherStatistics();
+        
+        // Refresh lessons
+        await loadTeacherLessons();
+        
+        // Refresh availability if needed
+        await loadTeacherAvailability();
+        
+        console.log('Teacher dashboard data refreshed successfully');
+        showNotification('Dashboard data refreshed successfully!', 'success');
+    } catch (error) {
+        console.error('Error refreshing teacher dashboard data:', error);
+        showNotification('Error refreshing dashboard data', 'danger');
+    }
+}
+
+// Make refresh function globally available
+window.refreshTeacherDashboardData = refreshTeacherDashboardData;
+
 // Revenue Report
 async function loadRevenueReport() {
     try {
+        console.log('Loading revenue report...');
         const response = await fetch(`${API_BASE_URL}/Auth/admin/revenue-report`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1676,9 +1892,13 @@ async function loadRevenueReport() {
         }
 
         const result = await response.json();
+        console.log('Revenue report result:', result);
         
-        if (result.success) {
+        if (result.success && result.quarters) {
+            console.log('Creating revenue chart with quarters:', result.quarters);
             createRevenueChart(result.quarters);
+        } else {
+            console.error('Invalid revenue report response:', result);
         }
     } catch (error) {
         console.error('Error loading revenue report:', error);
@@ -1828,12 +2048,28 @@ async function loadRevenueDistribution() {
 
 // Chart Creation Functions
 function createRevenueChart(quarters) {
-    const ctx = document.getElementById('revenueChart').getContext('2d');
+    console.log('Creating revenue chart with data:', quarters);
+    
+    const canvas = document.getElementById('revenueChart');
+    if (!canvas) {
+        console.error('Revenue chart canvas not found!');
+        return;
+    }
+    
+    const ctx = canvas.getContext('2d');
     
     const labels = quarters.map(q => `${q.year} ${q.quarter}`);
     const data = quarters.map(q => q.revenue);
     
-    new Chart(ctx, {
+    console.log('Chart labels:', labels);
+    console.log('Chart data:', data);
+    
+    // Destroy existing chart if it exists
+    if (window.revenueChartInstance) {
+        window.revenueChartInstance.destroy();
+    }
+    
+    window.revenueChartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
             labels: labels,
@@ -1859,6 +2095,8 @@ function createRevenueChart(quarters) {
             }
         }
     });
+    
+    console.log('Revenue chart created successfully');
 }
 
 function createReferralChart(referrals) {
@@ -2361,61 +2599,21 @@ async function processAdminFeePayment() {
 // Admin Dashboard Functions
 async function loadAdminDashboard() {
     try {
+        console.log('Loading admin dashboard...');
+        
         // Load all admin statistics from the new API endpoint
         await loadAdminDashboardStats();
         
         // Load initial data for the first tab (Revenue Report)
         await loadRevenueReport();
         
+        console.log('Admin dashboard loaded successfully');
+        
     } catch (error) {
         console.error('Error loading admin dashboard:', error);
     }
 }
 
-async function loadAdminDashboardStats() {
-    try {
-        const response = await fetch(`${API_BASE_URL}/Auth/admin/dashboard-stats`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({})
-        });
-        
-        const result = await response.json();
-        
-        if (result.success && result.stats) {
-            const stats = result.stats;
-            
-            // Update all KPI cards
-            document.getElementById('totalStudents').textContent = stats.totalStudents || 0;
-            document.getElementById('totalTeachers').textContent = stats.totalTeachers || 0;
-            document.getElementById('totalLessons').textContent = stats.totalLessons || 0;
-            document.getElementById('totalRevenue').textContent = `$${(stats.totalRevenue || 0).toFixed(2)}`;
-            document.getElementById('totalInstruments').textContent = stats.totalInstruments || 0;
-            document.getElementById('repeatLessonPercentage').textContent = `${(stats.repeatLessonPercentage || 0).toFixed(1)}%`;
-            
-        } else {
-            // Set default values on error
-            document.getElementById('totalStudents').textContent = '0';
-            document.getElementById('totalTeachers').textContent = '0';
-            document.getElementById('totalLessons').textContent = '0';
-            document.getElementById('totalRevenue').textContent = '$0.00';
-            document.getElementById('totalInstruments').textContent = '0';
-            document.getElementById('repeatLessonPercentage').textContent = '0%';
-        }
-        
-    } catch (error) {
-        console.error('Error loading admin dashboard stats:', error);
-        // Set default values on error
-        document.getElementById('totalStudents').textContent = '0';
-        document.getElementById('totalTeachers').textContent = '0';
-        document.getElementById('totalLessons').textContent = '0';
-        document.getElementById('totalRevenue').textContent = '$0.00';
-        document.getElementById('totalInstruments').textContent = '0';
-        document.getElementById('repeatLessonPercentage').textContent = '0%';
-    }
-}
 
 async function getTeacherEarnings() {
     try {
@@ -2682,37 +2880,63 @@ async function loadTeacherLessons() {
     if (result.success && result.lessons && result.lessons.length > 0) {
         teacherLessons.innerHTML = `
             <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
+                <table class="table table-striped table-hover teacher-lessons-table">
+                    <thead class="table-dark">
                         <tr>
-                            <th><i class="fas fa-user me-1"></i>Student</th>
-                            <th><i class="fas fa-music me-1"></i>Instrument</th>
-                            <th><i class="fas fa-calendar me-1"></i>Date</th>
-                            <th><i class="fas fa-clock me-1"></i>Time</th>
-                            <th><i class="fas fa-laptop me-1"></i>Type</th>
-                            <th><i class="fas fa-upload me-1"></i>Upload Files</th>
+                            <th class="text-center"><i class="fas fa-user me-1"></i>Student</th>
+                            <th class="text-center"><i class="fas fa-music me-1"></i>Instrument</th>
+                            <th class="text-center"><i class="fas fa-calendar me-1"></i>Date</th>
+                            <th class="text-center"><i class="fas fa-clock me-1"></i>Time</th>
+                            <th class="text-center"><i class="fas fa-laptop me-1"></i>Type</th>
+                            <th class="text-center"><i class="fas fa-upload me-1"></i>Upload Files</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${result.lessons.map(lesson => `
-                            <tr>
-                                <td><strong>${lesson.studentName}</strong></td>
-                                <td><span class="badge bg-secondary">${lesson.instrument}</span></td>
-                                <td>${lesson.day}</td>
-                                <td>Weekly</td>
-                                <td><span class="badge bg-info">In-Person</span></td>
-                                <td>
-                                    <div class="d-flex align-items-center gap-2">
+                        ${result.lessons.map((lesson, index) => `
+                            <tr class="lesson-row ${index % 2 === 0 ? 'even-row' : 'odd-row'}">
+                                <td class="text-center align-middle">
+                                    <div class="d-flex align-items-center justify-content-center">
+                                        <div class="student-avatar me-2">
+                                            <i class="fas fa-user-circle fa-lg text-primary"></i>
+                                        </div>
+                                        <div>
+                                            <strong class="d-block">${lesson.studentName}</strong>
+                                            <small class="text-muted">${lesson.studentEmail}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="text-center align-middle">
+                                    <span class="badge bg-primary fs-6 px-3 py-2">${lesson.instrument}</span>
+                                </td>
+                                <td class="text-center align-middle">
+                                    <div class="date-info">
+                                        <i class="fas fa-calendar-day text-success me-1"></i>
+                                        <strong>${lesson.day}</strong>
+                                    </div>
+                                </td>
+                                <td class="text-center align-middle">
+                                    <div class="time-info">
+                                        <i class="fas fa-clock text-info me-1"></i>
+                                        <span class="fw-medium">Weekly</span>
+                                    </div>
+                                </td>
+                                <td class="text-center align-middle">
+                                    <span class="badge bg-success fs-6 px-3 py-2">
+                                        <i class="fas fa-user-friends me-1"></i>In-Person
+                                    </span>
+                                </td>
+                                <td class="text-center align-middle">
+                                    <div class="upload-section">
                                         <input type="file" 
                                                id="fileInput_${lesson.studentEmail}_${lesson.day}" 
                                                class="d-none" 
                                                accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.gif,.txt"
                                                onchange="uploadFile('${lesson.studentEmail}', '${lesson.day}')">
-                                        <button class="btn btn-sm btn-outline-primary" 
+                                        <button class="btn btn-sm btn-outline-primary upload-btn" 
                                                 onclick="document.getElementById('fileInput_${lesson.studentEmail}_${lesson.day}').click()">
                                             <i class="fas fa-upload me-1"></i>Upload
                                         </button>
-                                        <div id="uploadStatus_${lesson.studentEmail}_${lesson.day}" class="upload-status"></div>
+                                        <div id="uploadStatus_${lesson.studentEmail}_${lesson.day}" class="upload-status mt-2"></div>
                                     </div>
                                 </td>
                             </tr>
@@ -2723,10 +2947,15 @@ async function loadTeacherLessons() {
         `;
     } else {
         teacherLessons.innerHTML = `
-            <div class="alert alert-info">
-                <i class="fas fa-info-circle me-2"></i>
-                <strong>No lessons booked yet!</strong><br>
-                Set your availability above to start receiving bookings from students.
+            <div class="text-center py-5">
+                <div class="empty-state">
+                    <i class="fas fa-calendar-times fa-4x text-muted mb-4"></i>
+                    <h5 class="text-muted mb-3">No Upcoming Lessons</h5>
+                    <p class="text-muted mb-4">Students will be able to book lessons once you set your availability.</p>
+                    <button class="btn btn-primary" onclick="showAvailabilityModal()">
+                        <i class="fas fa-calendar-plus me-2"></i>Set Availability
+                    </button>
+                </div>
             </div>
         `;
     }
@@ -2970,15 +3199,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (location.hash) scrollToHash(location.hash);
         }
 
-        // Hide loader after a short delay to showcase animation
-        const loader = document.getElementById('loader');
-        if (loader) {
-            setTimeout(() => {
-                loader.style.opacity = '0';
-                loader.style.transition = 'opacity .5s ease';
-                setTimeout(() => loader.remove(), 500);
-            }, 2000);
-        }
 
         // Scroll reveal
         const revealItems = document.querySelectorAll('.reveal');
@@ -3132,12 +3352,6 @@ const adminData = {
 
 let charts = {};
 
-function loadAdminDashboard() {
-    updateQuickStats();
-    initializeCharts();
-    loadTables();
-    setupEventListeners();
-}
 
 function updateQuickStats() {
     const totalRevenue = adminData.revenue.amounts.reduce((sum, amount) => sum + amount, 0);
@@ -4151,6 +4365,9 @@ async function uploadFile(studentEmail, lessonDay) {
             
             // Clear the file input
             fileInput.value = '';
+            
+            // Refresh teacher dashboard data after successful upload
+            await refreshTeacherDashboardData();
         } else {
             // Show error status
             statusDiv.innerHTML = '<span class="text-danger"><i class="fas fa-exclamation-circle me-1"></i>Failed</span>';
@@ -4278,3 +4495,591 @@ window.getLessonFiles = getLessonFiles;
 window.createAdminUser = createAdminUser;
 window.showAdminLogin = showAdminLogin;
 window.performAdminLogin = performAdminLogin;
+
+// Enhanced Student Dashboard Functions
+function initStudentDashboard() {
+    // Initialize tab navigation
+    initDashboardTabs();
+    
+    // Initialize search functionality
+    initTeacherSearch();
+    
+    // Initialize dashboard stats
+    loadDashboardStats();
+    
+    // Initialize teacher grid
+    loadTeachersGrid();
+}
+
+// Dashboard Tab Navigation
+function initDashboardTabs() {
+    const tabs = document.querySelectorAll('.nav-tab');
+    const panels = document.querySelectorAll('.tab-panel');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const target = tab.getAttribute('data-target');
+            
+            // Remove active class from all tabs and panels
+            tabs.forEach(t => t.classList.remove('active'));
+            panels.forEach(p => p.classList.remove('active'));
+            
+            // Add active class to clicked tab and corresponding panel
+            tab.classList.add('active');
+            const targetPanel = document.getElementById(`${target}-panel`);
+            if (targetPanel) {
+                targetPanel.classList.add('active');
+            }
+            
+            // Load content based on active tab
+            switch(target) {
+                case 'dashboard':
+                    loadDashboardStats();
+                    break;
+                case 'find-teachers':
+                    loadTeachersGrid();
+                    break;
+                case 'my-bookings':
+                    loadMyBookings();
+                    break;
+                case 'profile':
+                    loadStudentProfile();
+                    break;
+                case 'payments':
+                    loadPaymentInfo();
+                    break;
+            }
+        });
+    });
+}
+
+// Teacher Search Functionality
+function initTeacherSearch() {
+    const searchInput = document.getElementById('teacherSearchInput');
+    const instrumentFilter = document.getElementById('instrumentFilter');
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', debounce(filterTeachers, 300));
+    }
+    
+    if (instrumentFilter) {
+        instrumentFilter.addEventListener('change', filterTeachers);
+    }
+}
+
+// Debounce function for search
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// Filter Teachers
+function filterTeachers() {
+    const searchTerm = document.getElementById('teacherSearchInput')?.value.toLowerCase() || '';
+    const instrumentFilter = document.getElementById('instrumentFilter')?.value || '';
+    const teacherCards = document.querySelectorAll('.teacher-card');
+    
+    let visibleCount = 0;
+    
+    teacherCards.forEach(card => {
+        const teacherName = card.querySelector('.teacher-info h3')?.textContent.toLowerCase() || '';
+        const teacherInstrument = card.querySelector('.instrument-badge')?.textContent.toLowerCase() || '';
+        
+        const matchesSearch = teacherName.includes(searchTerm) || teacherInstrument.includes(searchTerm);
+        const matchesInstrument = !instrumentFilter || teacherInstrument.includes(instrumentFilter.toLowerCase());
+        
+        if (matchesSearch && matchesInstrument) {
+            card.style.display = 'block';
+            card.classList.add('fade-in-up');
+            visibleCount++;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+    
+    // Update teachers count
+    const countElement = document.getElementById('teachersCount');
+    if (countElement) {
+        countElement.textContent = visibleCount;
+    }
+}
+
+// Load Dashboard Stats
+async function loadDashboardStats() {
+    try {
+        // Simulate loading stats (replace with actual API calls)
+        const stats = {
+            totalLessons: 12,
+            activeTeachers: 3,
+            instrumentsLearned: 2,
+            progressScore: 75
+        };
+        
+        // Update stat elements
+        updateElement('totalLessons', stats.totalLessons);
+        updateElement('activeTeachers', stats.activeTeachers);
+        updateElement('instrumentsLearned', stats.instrumentsLearned);
+        updateElement('progressScore', `${stats.progressScore}%`);
+        
+        // Load recent activity
+        loadRecentActivity();
+        loadUpcomingLessons();
+        
+    } catch (error) {
+        console.error('Error loading dashboard stats:', error);
+    }
+}
+
+// Load Teachers Grid
+async function loadTeachersGrid() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/Auth/teachers/list`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                searchTerm: '',
+                instrument: ''
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch teachers');
+        }
+        
+        const data = await response.json();
+        const teachersGrid = document.getElementById('teachersGrid');
+        
+        if (teachersGrid && data.success) {
+            teachersGrid.innerHTML = '';
+            
+            data.teachers.forEach((teacher, index) => {
+                const teacherCard = createTeacherCard(teacher, index);
+                teachersGrid.appendChild(teacherCard);
+            });
+            
+            // Update teachers count
+            updateElement('teachersCount', data.teachers.length);
+            
+            // Initialize scroll animations
+            initScrollAnimations();
+        }
+    } catch (error) {
+        console.error('Error loading teachers:', error);
+        const teachersGrid = document.getElementById('teachersGrid');
+        if (teachersGrid) {
+            teachersGrid.innerHTML = '<p class="text-center text-muted">Error loading teachers. Please try again.</p>';
+        }
+    }
+}
+
+// Create Teacher Card
+function createTeacherCard(teacher, index) {
+    const card = document.createElement('div');
+    card.className = 'teacher-card fade-in-up';
+    card.style.animationDelay = `${index * 0.1}s`;
+    
+    const instrumentIcon = getInstrumentIcon(teacher.instrument);
+    
+    card.innerHTML = `
+        <div class="teacher-header">
+            <div class="teacher-avatar">
+                ${teacher.teacher_name ? teacher.teacher_name.charAt(0).toUpperCase() : 'T'}
+            </div>
+            <div class="teacher-info">
+                <h3>${teacher.teacher_name || 'Teacher Name'}</h3>
+                <p>Professional Music Instructor</p>
+            </div>
+        </div>
+        
+        <div class="teacher-details">
+            <div class="detail-item">
+                <i class="fas fa-envelope"></i>
+                <span>${teacher.teacher_email || 'teacher@example.com'}</span>
+            </div>
+            <div class="detail-item">
+                <i class="fas fa-music"></i>
+                <span class="instrument-badge">
+                    ${instrumentIcon} ${teacher.instrument || 'Music'}
+                </span>
+            </div>
+            <div class="detail-item">
+                <i class="fas fa-user"></i>
+                <span>${teacher.experience || '5+'} years experience</span>
+            </div>
+        </div>
+        
+        <button class="availability-btn" onclick="toggleAvailability('${teacher.teacher_email}')">
+            <i class="fas fa-calendar-alt"></i>
+            View Availability
+        </button>
+        
+        <div class="availability-slots" id="slots-${teacher.teacher_email}">
+            <div class="slot-item">
+                <span class="slot-time">Monday 2:00 PM</span>
+                <span class="slot-status available">Available</span>
+            </div>
+            <div class="slot-item">
+                <span class="slot-time">Wednesday 4:00 PM</span>
+                <span class="slot-status available">Available</span>
+            </div>
+            <div class="slot-item">
+                <span class="slot-time">Friday 3:00 PM</span>
+                <span class="slot-status booked">Booked</span>
+            </div>
+        </div>
+    `;
+    
+    return card;
+}
+
+// Get Instrument Icon
+function getInstrumentIcon(instrument) {
+    const icons = {
+        'Guitar': '🎸',
+        'Piano': '🎹',
+        'Violin': '🎻',
+        'Drums': '🥁',
+        'Bass': '🎸',
+        'Saxophone': '🎷',
+        'Flute': '🎵',
+        'Trumpet': '🎺'
+    };
+    return icons[instrument] || '🎵';
+}
+
+// Toggle Availability
+function toggleAvailability(teacherEmail) {
+    const slots = document.getElementById(`slots-${teacherEmail}`);
+    if (slots) {
+        slots.classList.toggle('show');
+    }
+}
+
+// Load My Bookings
+async function loadMyBookings() {
+    try {
+        // Simulate loading bookings
+        const bookings = [
+            {
+                teacher: 'John Smith',
+                instrument: 'Guitar',
+                date: '2024-01-15',
+                time: '2:00 PM',
+                status: 'Confirmed'
+            },
+            {
+                teacher: 'Sarah Johnson',
+                instrument: 'Piano',
+                date: '2024-01-17',
+                time: '4:00 PM',
+                status: 'Pending'
+            }
+        ];
+        
+        const bookingsContent = document.getElementById('myBookingsContent');
+        if (bookingsContent) {
+            bookingsContent.innerHTML = bookings.map(booking => `
+                <div class="booking-item fade-in-up">
+                    <div class="booking-info">
+                        <h4>${booking.teacher} - ${booking.instrument}</h4>
+                        <p>${booking.date} at ${booking.time}</p>
+                    </div>
+                    <div class="booking-status">
+                        <span class="status-badge ${booking.status.toLowerCase()}">${booking.status}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Update progress
+        updateElement('lessonsCompleted', '1');
+        updateElement('totalBooked', '2');
+        updateProgressBar(50);
+        
+    } catch (error) {
+        console.error('Error loading bookings:', error);
+    }
+}
+
+// Load Student Profile
+function loadStudentProfile() {
+    // Load saved profile data
+    const savedProfile = {
+        name: 'John Doe',
+        instrument: 'Guitar',
+        email: 'john@example.com'
+    };
+    
+    // Populate form fields
+    updateElement('sName', savedProfile.name);
+    updateElement('sInstrument', savedProfile.instrument);
+    updateElement('sEmail', savedProfile.email);
+    
+    // Update profile summary
+    const summary = document.getElementById('sProfileSummary');
+    if (summary) {
+        summary.innerHTML = `
+            <div class="profile-summary-content">
+                <h5>${savedProfile.name}</h5>
+                <p><strong>Instrument:</strong> ${savedProfile.instrument}</p>
+                <p><strong>Email:</strong> ${savedProfile.email}</p>
+                <p><strong>Member since:</strong> January 2024</p>
+            </div>
+        `;
+    }
+}
+
+// Load Payment Info
+function loadPaymentInfo() {
+    // Simulate payment data
+    const paymentMethods = [
+        { type: 'Visa', number: '****1234', expiry: '12/25' },
+        { type: 'Mastercard', number: '****5678', expiry: '06/26' }
+    ];
+    
+    const transactions = [
+        { date: '2024-01-10', description: 'Guitar Lesson', amount: '$50.00', status: 'Completed' },
+        { date: '2024-01-08', description: 'Piano Lesson', amount: '$50.00', status: 'Completed' }
+    ];
+    
+    // Update payment methods
+    const methodsList = document.getElementById('paymentMethods');
+    if (methodsList) {
+        methodsList.innerHTML = paymentMethods.map(method => `
+            <div class="payment-method-item">
+                <div class="method-info">
+                    <h5>${method.type}</h5>
+                    <p>${method.number} • Expires ${method.expiry}</p>
+                </div>
+                <div class="method-actions">
+                    <button class="btn btn-sm btn-outline-primary">Edit</button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    // Update transaction history
+    const transactionList = document.getElementById('transactionHistory');
+    if (transactionList) {
+        transactionList.innerHTML = transactions.map(transaction => `
+            <div class="transaction-item">
+                <div class="transaction-info">
+                    <h5>${transaction.description}</h5>
+                    <p>${transaction.date}</p>
+                </div>
+                <div class="transaction-amount">
+                    <span class="amount">${transaction.amount}</span>
+                    <span class="status ${transaction.status.toLowerCase()}">${transaction.status}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+// Load Recent Activity
+function loadRecentActivity() {
+    const activities = [
+        'Booked lesson with John Smith',
+        'Completed Guitar lesson',
+        'Updated profile information',
+        'Added payment method'
+    ];
+    
+    const activityContainer = document.getElementById('recentActivity');
+    if (activityContainer) {
+        activityContainer.innerHTML = activities.map(activity => `
+            <div class="activity-item">
+                <i class="fas fa-circle"></i>
+                <span>${activity}</span>
+            </div>
+        `).join('');
+    }
+}
+
+// Load Upcoming Lessons
+function loadUpcomingLessons() {
+    const lessons = [
+        { teacher: 'John Smith', instrument: 'Guitar', date: 'Tomorrow', time: '2:00 PM' },
+        { teacher: 'Sarah Johnson', instrument: 'Piano', date: 'Friday', time: '4:00 PM' }
+    ];
+    
+    const lessonsContainer = document.getElementById('upcomingLessons');
+    if (lessonsContainer) {
+        lessonsContainer.innerHTML = lessons.map(lesson => `
+            <div class="lesson-item">
+                <div class="lesson-info">
+                    <h5>${lesson.teacher} - ${lesson.instrument}</h5>
+                    <p>${lesson.date} at ${lesson.time}</p>
+                </div>
+                <div class="lesson-actions">
+                    <button class="btn btn-sm btn-primary">Join</button>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+// Update Element Helper
+function updateElement(id, value) {
+    const element = document.getElementById(id);
+    if (element) {
+        element.textContent = value;
+    }
+}
+
+// Update Progress Bar
+function updateProgressBar(percentage) {
+    const progressFill = document.getElementById('progressFill');
+    if (progressFill) {
+        progressFill.style.width = `${percentage}%`;
+    }
+}
+
+// Save Student Profile
+function saveStudentProfile() {
+    const name = document.getElementById('sName')?.value;
+    const instrument = document.getElementById('sInstrument')?.value;
+    const email = document.getElementById('sEmail')?.value;
+    
+    if (name && instrument && email) {
+        // Update welcome text
+        const welcomeText = document.getElementById('studentWelcomeText');
+        if (welcomeText) {
+            welcomeText.textContent = `Welcome back, ${name}!`;
+        }
+        
+        // Show success message
+        showNotification('Profile saved successfully!', 'success');
+        
+        // Update profile summary
+        loadStudentProfile();
+    } else {
+        showNotification('Please fill in all fields', 'error');
+    }
+}
+
+// Enhanced Learners Button
+function initLearnersButton() {
+    const learnersBtn = document.getElementById('studentDashboardLink');
+    
+    if (learnersBtn) {
+        // Add click animation
+        learnersBtn.addEventListener('click', function(e) {
+            // Add ripple effect
+            createRippleEffect(e, this);
+            
+            // Add active state temporarily
+            this.classList.add('active');
+            setTimeout(() => {
+                this.classList.remove('active');
+            }, 200);
+        });
+        
+        // Add keyboard navigation
+        learnersBtn.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.click();
+            }
+        });
+        
+        // Add focus management
+        learnersBtn.addEventListener('focus', function() {
+            this.style.outline = 'none';
+        });
+    }
+}
+
+// Enhanced Teachers Button
+function initTeachersButton() {
+    const teachersBtn = document.getElementById('teacherDashboardLink');
+    
+    if (teachersBtn) {
+        // Add click animation
+        teachersBtn.addEventListener('click', function(e) {
+            // Add ripple effect
+            createRippleEffect(e, this);
+            
+            // Add active state temporarily
+            this.classList.add('active');
+            setTimeout(() => {
+                this.classList.remove('active');
+            }, 200);
+        });
+        
+        // Add keyboard navigation
+        teachersBtn.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                this.click();
+            }
+        });
+        
+        // Add focus management
+        teachersBtn.addEventListener('focus', function() {
+            this.style.outline = 'none';
+        });
+    }
+}
+
+// Create ripple effect for button clicks
+function createRippleEffect(event, element) {
+    const ripple = document.createElement('span');
+    const rect = element.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const x = event.clientX - rect.left - size / 2;
+    const y = event.clientY - rect.top - size / 2;
+    
+    ripple.style.cssText = `
+        position: absolute;
+        width: ${size}px;
+        height: ${size}px;
+        left: ${x}px;
+        top: ${y}px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        transform: scale(0);
+        animation: ripple 0.6s linear;
+        pointer-events: none;
+        z-index: 1;
+    `;
+    
+    element.appendChild(ripple);
+    
+    setTimeout(() => {
+        ripple.remove();
+    }, 600);
+}
+
+// Add ripple animation CSS
+function addRippleAnimation() {
+    if (!document.getElementById('ripple-styles')) {
+        const style = document.createElement('style');
+        style.id = 'ripple-styles';
+        style.textContent = `
+            @keyframes ripple {
+                to {
+                    transform: scale(4);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
+// Make functions globally available
+window.initStudentDashboard = initStudentDashboard;
+window.toggleAvailability = toggleAvailability;
+window.saveStudentProfile = saveStudentProfile;
+window.initLearnersButton = initLearnersButton;
+window.initTeachersButton = initTeachersButton;
