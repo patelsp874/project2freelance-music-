@@ -121,38 +121,6 @@ namespace FreelanceMusicAPI.Controllers
                     );";
                 createPaymentTableCmd.ExecuteNonQuery();
 
-                // Create Lesson_Files table for file uploads
-                var createLessonFilesTableCmd = connection.CreateCommand();
-                createLessonFilesTableCmd.CommandText = @"
-                    CREATE TABLE IF NOT EXISTS Lesson_Files (
-                        file_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        lesson_id INTEGER NOT NULL,
-                        student_id INTEGER NOT NULL,
-                        teacher_id INTEGER NOT NULL,
-                        file_name TEXT NOT NULL,
-                        file_path TEXT NOT NULL,
-                        file_size INTEGER NOT NULL,
-                        file_type TEXT NOT NULL,
-                        file_category TEXT NOT NULL,
-                        upload_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (student_id) REFERENCES Student(student_id) ON DELETE CASCADE,
-                        FOREIGN KEY (teacher_id) REFERENCES Teacher(teacher_id) ON DELETE CASCADE
-                    );";
-                createLessonFilesTableCmd.ExecuteNonQuery();
-
-                // Add file_category column if it doesn't exist (for existing databases)
-                try
-                {
-                    var alterLessonFilesTableCmd = connection.CreateCommand();
-                    alterLessonFilesTableCmd.CommandText = "ALTER TABLE Lesson_Files ADD COLUMN file_category TEXT;";
-                    alterLessonFilesTableCmd.ExecuteNonQuery();
-                }
-                catch (SqliteException)
-                {
-                    // Column already exists, ignore error
-                }
-
                 // Create indexes for better performance
                 var createIndexesCmd = connection.CreateCommand();
                 createIndexesCmd.CommandText = @"
@@ -1524,335 +1492,39 @@ namespace FreelanceMusicAPI.Controllers
                 });
             }
         }
+    }
 
-        [HttpPost("upload-lesson-file")]
-        public async Task<IActionResult> UploadLessonFile()
+        [HttpPost("payment/admin-fees")]
+        public IActionResult GetAdminFeeRevenue([FromBody] object request)
         {
-            try
+            using (var connection = new SqliteConnection(_connectionString))
             {
-                // Get form data
-                var form = await Request.ReadFormAsync();
-                var file = form.Files.FirstOrDefault();
-                var studentEmail = form["studentEmail"].FirstOrDefault();
-                var teacherEmail = form["teacherEmail"].FirstOrDefault();
-                var lessonDay = form["lessonDay"].FirstOrDefault();
+                connection.Open();
 
-                if (file == null || file.Length == 0)
+                // Get total admin fee payments (description = 'Admin Fee Payment')
+                var getAdminFeesCmd = connection.CreateCommand();
+                getAdminFeesCmd.CommandText = @"
+                    SELECT COALESCE(SUM(amount), 0) as totalAdminFees, COUNT(*) as totalPayments
+                    FROM Payment 
+                    WHERE description = 'Admin Fee Payment' AND payment_status = 'Completed'";
+
+                using (var reader = getAdminFeesCmd.ExecuteReader())
                 {
-                    return BadRequest(new { success = false, error = "No file uploaded." });
-                }
-
-                if (string.IsNullOrEmpty(studentEmail) || string.IsNullOrEmpty(teacherEmail) || string.IsNullOrEmpty(lessonDay))
-                {
-                    return BadRequest(new { success = false, error = "Missing required parameters: studentEmail, teacherEmail, or lessonDay." });
-                }
-
-                // Validate file size (max 10MB)
-                if (file.Length > 10 * 1024 * 1024)
-                {
-                    return BadRequest(new { success = false, error = "File size exceeds 10MB limit." });
-                }
-
-                // Validate file type
-                var allowedExtensions = new[] { ".pdf", ".docx", ".doc", ".jpg", ".jpeg", ".png", ".gif", ".txt" };
-                var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
-                if (!allowedExtensions.Contains(fileExtension))
-                {
-                    return BadRequest(new { success = false, error = "File type not allowed. Allowed types: PDF, DOCX, DOC, JPG, JPEG, PNG, GIF, TXT" });
-                }
-
-                // Determine file category and create appropriate directory
-                string fileCategory;
-                if (fileExtension == ".jpg" || fileExtension == ".jpeg" || fileExtension == ".png" || fileExtension == ".gif")
-                {
-                    fileCategory = "images";
-                }
-                else if (fileExtension == ".pdf" || fileExtension == ".docx" || fileExtension == ".doc")
-                {
-                    fileCategory = "documents";
-                }
-                else
-                {
-                    fileCategory = "other";
-                }
-
-                // Create organized uploads directory structure
-                var baseUploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "resources");
-                var categoryPath = Path.Combine(baseUploadsPath, fileCategory);
-                var teacherPath = Path.Combine(categoryPath, "teacher_files");
-                
-                if (!Directory.Exists(teacherPath))
-                {
-                    Directory.CreateDirectory(teacherPath);
-                }
-
-                // Generate unique filename with original name preserved in metadata
-                var fileName = $"{Guid.NewGuid()}{fileExtension}";
-                var filePath = Path.Combine(teacherPath, fileName);
-
-                // Save file
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await file.CopyToAsync(stream);
-                }
-
-                // Get student and teacher IDs
-                using (var connection = new SqliteConnection(_connectionString))
-                {
-                    connection.Open();
-
-                    var getStudentIdCmd = connection.CreateCommand();
-                    getStudentIdCmd.CommandText = "SELECT student_id FROM Student WHERE student_email = @email";
-                    getStudentIdCmd.Parameters.AddWithValue("@email", studentEmail);
-                    var studentId = getStudentIdCmd.ExecuteScalar();
-
-                    var getTeacherIdCmd = connection.CreateCommand();
-                    getTeacherIdCmd.CommandText = "SELECT teacher_id FROM Teacher WHERE teacher_email = @email";
-                    getTeacherIdCmd.Parameters.AddWithValue("@email", teacherEmail);
-                    var teacherId = getTeacherIdCmd.ExecuteScalar();
-
-                    if (studentId == null || teacherId == null)
+                    if (reader.Read())
                     {
-                        // Clean up uploaded file if database operation fails
-                        if (System.IO.File.Exists(filePath))
-                        {
-                            System.IO.File.Delete(filePath);
-                        }
-                        return BadRequest(new { success = false, error = "Student or teacher not found." });
+                        var totalAdminFees = reader.GetDecimal(0);
+                        var totalPayments = reader.GetInt32(1);
+
+                        return Ok(new { 
+                            success = true, 
+                            totalAdminFees = totalAdminFees,
+                            totalPayments = totalPayments
+                        });
                     }
-
-                    // Get lesson ID from Student_Studying table
-                    var getLessonIdCmd = connection.CreateCommand();
-                    getLessonIdCmd.CommandText = @"
-                        SELECT ss.student_id || '_' || ss.teacher_id || '_' || ss.day as lesson_id
-                        FROM Student_Studying ss
-                        WHERE ss.student_id = @studentId AND ss.teacher_id = @teacherId AND ss.day = @day";
-                    getLessonIdCmd.Parameters.AddWithValue("@studentId", studentId);
-                    getLessonIdCmd.Parameters.AddWithValue("@teacherId", teacherId);
-                    getLessonIdCmd.Parameters.AddWithValue("@day", lessonDay);
-                    var lessonId = getLessonIdCmd.ExecuteScalar()?.ToString();
-
-                    if (string.IsNullOrEmpty(lessonId))
-                    {
-                        // Clean up uploaded file if lesson not found
-                        if (System.IO.File.Exists(filePath))
-                        {
-                            System.IO.File.Delete(filePath);
-                        }
-                        return BadRequest(new { success = false, error = "Lesson not found." });
-                    }
-
-                    // Save file metadata to database
-                    var insertFileCmd = connection.CreateCommand();
-                    insertFileCmd.CommandText = @"
-                        INSERT INTO Lesson_Files (lesson_id, student_id, teacher_id, file_name, file_path, file_size, file_type, file_category)
-                        VALUES (@lessonId, @studentId, @teacherId, @fileName, @filePath, @fileSize, @fileType, @fileCategory)";
-                    insertFileCmd.Parameters.AddWithValue("@lessonId", lessonId);
-                    insertFileCmd.Parameters.AddWithValue("@studentId", studentId);
-                    insertFileCmd.Parameters.AddWithValue("@teacherId", teacherId);
-                    insertFileCmd.Parameters.AddWithValue("@fileName", file.FileName);
-                    insertFileCmd.Parameters.AddWithValue("@filePath", filePath);
-                    insertFileCmd.Parameters.AddWithValue("@fileSize", file.Length);
-                    insertFileCmd.Parameters.AddWithValue("@fileType", file.ContentType);
-                    insertFileCmd.Parameters.AddWithValue("@fileCategory", fileCategory);
-                    insertFileCmd.ExecuteNonQuery();
-
-                    return Ok(new { 
-                        success = true, 
-                        message = "File uploaded successfully.",
-                        fileName = file.FileName,
-                        fileSize = file.Length
-                    });
                 }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, error = $"Upload failed: {ex.Message}" });
-            }
-        }
 
-        [HttpPost("get-lesson-files")]
-        public IActionResult GetLessonFiles([FromBody] GetLessonFilesRequest request)
-        {
-            try
-            {
-                using (var connection = new SqliteConnection(_connectionString))
-                {
-                    connection.Open();
-
-                    // Get student and teacher IDs
-                    var getStudentIdCmd = connection.CreateCommand();
-                    getStudentIdCmd.CommandText = "SELECT student_id FROM Student WHERE student_email = @email";
-                    getStudentIdCmd.Parameters.AddWithValue("@email", request.StudentEmail);
-                    var studentId = getStudentIdCmd.ExecuteScalar();
-
-                    var getTeacherIdCmd = connection.CreateCommand();
-                    getTeacherIdCmd.CommandText = "SELECT teacher_id FROM Teacher WHERE teacher_email = @email";
-                    getTeacherIdCmd.Parameters.AddWithValue("@email", request.TeacherEmail);
-                    var teacherId = getTeacherIdCmd.ExecuteScalar();
-
-                    if (studentId == null || teacherId == null)
-                    {
-                        return BadRequest(new { success = false, error = "Student or teacher not found." });
-                    }
-
-                    // Get lesson files
-                    var getFilesCmd = connection.CreateCommand();
-                    getFilesCmd.CommandText = @"
-                        SELECT file_id, file_name, file_size, file_type, file_category, upload_date
-                        FROM Lesson_Files
-                        WHERE student_id = @studentId AND teacher_id = @teacherId AND lesson_id LIKE @lessonIdPattern
-                        ORDER BY upload_date DESC";
-                    getFilesCmd.Parameters.AddWithValue("@studentId", studentId);
-                    getFilesCmd.Parameters.AddWithValue("@teacherId", teacherId);
-                    getFilesCmd.Parameters.AddWithValue("@lessonIdPattern", $"{studentId}_{teacherId}_{request.LessonDay}");
-
-                    var files = new List<object>();
-                    using (var reader = getFilesCmd.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            files.Add(new
-                            {
-                                fileId = reader.GetInt32(0),
-                                fileName = reader.GetString(1),
-                                fileSize = reader.GetInt64(2),
-                                fileType = reader.GetString(3),
-                                fileCategory = reader.GetString(4),
-                                uploadDate = reader.GetDateTime(5)
-                            });
-                        }
-                    }
-
-                    return Ok(new { success = true, files = files });
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, error = $"Failed to get files: {ex.Message}" });
+                return Ok(new { success = true, totalAdminFees = 0.0, totalPayments = 0 });
             }
         }
     }
-}
-
-// DTOs for requests
-public class SignupRequest
-{
-    public string? FirstName { get; set; }
-    public string? LastName { get; set; }
-    public string? Email { get; set; }
-    public string? Password { get; set; }
-    public string? AccountType { get; set; }
-}
-
-public class LoginRequest
-{
-    public string? Email { get; set; }
-    public string? Password { get; set; }
-}
-
-public class CreateTeacherProfileRequest
-{
-    public string? Name { get; set; }
-    public string? Instrument { get; set; }
-    public string? Bio { get; set; }
-    public string? Email { get; set; }
-    public int? ClassFull { get; set; }
-    public int? ClassLimit { get; set; }
-}
-
-public class GetTeacherProfileRequest
-{
-    public string? Email { get; set; }
-}
-
-public class UpdateTeacherProfileRequest
-{
-    public string? Name { get; set; }
-    public string? Instrument { get; set; }
-    public string? Bio { get; set; }
-    public string? Email { get; set; }
-    public int? ClassFull { get; set; }
-    public int? ClassLimit { get; set; }
-}
-
-public class AddTeacherAvailabilityRequest
-{
-    public string? Email { get; set; }
-    public string? Day { get; set; }
-    public string? StartTime { get; set; }
-    public string? EndTime { get; set; }
-}
-
-public class GetTeacherAvailabilityRequest
-{
-    public string? Email { get; set; }
-}
-
-public class SetTeacherAvailabilityRequest
-{
-    public string? Email { get; set; }
-    public List<AvailabilitySlot>? Availability { get; set; }
-}
-
-public class AvailabilitySlot
-{
-    public string? DayOfWeek { get; set; }
-    public string? StartTime { get; set; }
-    public string? EndTime { get; set; }
-    public bool IsAvailable { get; set; }
-}
-
-public class GetTeachersListRequest
-{
-    public string? Instrument { get; set; }
-}
-
-public class GetTeacherScheduleRequest
-{
-    public string? TeacherId { get; set; }
-}
-
-public class AddStudentStudyingRequest
-{
-    public string? StudentEmail { get; set; }
-    public string? TeacherEmail { get; set; }
-    public string? Day { get; set; }
-}
-
-public class GetStudentStudyingRequest
-{
-    public string? StudentEmail { get; set; }
-}
-
-public class CheckPasswordRequest
-{
-    public string? Email { get; set; }
-}
-
-public class UpdatePasswordRequest
-{
-    public string? Email { get; set; }
-    public string? NewPassword { get; set; }
-}
-
-public class ProcessPaymentRequest
-{
-    public string? StudentEmail { get; set; }
-    public string? TeacherEmail { get; set; }
-    public string? LessonDay { get; set; }
-    public decimal Amount { get; set; }
-    public string? PaymentMethod { get; set; }
-}
-
-public class GetPaymentHistoryRequest
-{
-    public string? StudentEmail { get; set; }
-}
-
-public class GetLessonFilesRequest
-{
-    public string? StudentEmail { get; set; }
-    public string? TeacherEmail { get; set; }
-    public string? LessonDay { get; set; }
 }
