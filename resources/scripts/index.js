@@ -1633,6 +1633,612 @@ window.refreshTeacherStats = async function() {
     showNotification('Statistics updated!', 'success');
 };
 
+// Admin Dashboard Functions
+async function loadAdminDashboardStats() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/Auth/admin/dashboard-stats`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            // Update quick stats
+            document.getElementById('totalStudents').textContent = result.stats.totalStudents;
+            document.getElementById('totalTeachers').textContent = result.stats.totalTeachers;
+            document.getElementById('totalLessons').textContent = result.stats.totalLessons;
+            document.getElementById('totalRevenue').textContent = `$${result.stats.totalRevenue.toFixed(2)}`;
+            document.getElementById('totalInstruments').textContent = result.stats.totalInstruments;
+            document.getElementById('repeatLessonPercentage').textContent = `${result.stats.repeatLessonPercentage}%`;
+        }
+    } catch (error) {
+        console.error('Error loading admin dashboard stats:', error);
+    }
+}
+
+// Revenue Report
+async function loadRevenueReport() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/Auth/admin/revenue-report`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            createRevenueChart(result.quarters);
+        }
+    } catch (error) {
+        console.error('Error loading revenue report:', error);
+    }
+}
+
+// Referral Report
+async function loadReferralReport() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/Auth/admin/referral-report`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            createReferralChart(result.referrals);
+            createReferralTable(result.referrals);
+        }
+    } catch (error) {
+        console.error('Error loading referral report:', error);
+    }
+}
+
+// Popular Instruments
+async function loadPopularInstruments() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/Auth/admin/popular-instruments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            createInstrumentsTable(result.instruments);
+        }
+    } catch (error) {
+        console.error('Error loading popular instruments:', error);
+    }
+}
+
+// Lessons Booked
+async function loadLessonsBooked() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/Auth/admin/lessons-booked`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            createLessonsTable(result.lessons);
+        }
+    } catch (error) {
+        console.error('Error loading lessons booked:', error);
+    }
+}
+
+// Users Joined
+async function loadUsersJoined() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/Auth/admin/users-joined`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            createUsersTable(result.users);
+        }
+    } catch (error) {
+        console.error('Error loading users joined:', error);
+    }
+}
+
+// Repeat Lessons
+async function loadRepeatLessons() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/Auth/admin/repeat-lessons`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            createRepeatChart(result);
+            createRepeatStats(result);
+        }
+    } catch (error) {
+        console.error('Error loading repeat lessons:', error);
+    }
+}
+
+// Revenue Distribution
+async function loadRevenueDistribution() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/Auth/admin/revenue-distribution`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        
+        if (result.success) {
+            createInstrumentRevenueChart(result.instrumentRevenue);
+            createStudentRevenueChart(result.topStudents);
+        }
+    } catch (error) {
+        console.error('Error loading revenue distribution:', error);
+    }
+}
+
+// Chart Creation Functions
+function createRevenueChart(quarters) {
+    const ctx = document.getElementById('revenueChart').getContext('2d');
+    
+    const labels = quarters.map(q => `${q.year} ${q.quarter}`);
+    const data = quarters.map(q => q.revenue);
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Revenue ($)',
+                data: data,
+                backgroundColor: 'rgba(54, 162, 235, 0.8)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toFixed(2);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function createReferralChart(referrals) {
+    const ctx = document.getElementById('referralChart').getContext('2d');
+    
+    const labels = referrals.map(r => r.source);
+    const data = referrals.map(r => r.count);
+    const colors = ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0'];
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: colors,
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function createReferralTable(referrals) {
+    const table = `
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Source</th>
+                        <th>Count</th>
+                        <th>Percentage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${referrals.map(r => {
+                        const total = referrals.reduce((sum, ref) => sum + ref.count, 0);
+                        const percentage = total > 0 ? ((r.count / total) * 100).toFixed(1) : 0;
+                        return `
+                            <tr>
+                                <td>${r.source}</td>
+                                <td>${r.count}</td>
+                                <td>${percentage}%</td>
+                            </tr>
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    document.getElementById('referralTable').innerHTML = table;
+}
+
+function createInstrumentsTable(instruments) {
+    const table = `
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Instrument</th>
+                        <th>Lessons Booked</th>
+                        <th>Unique Students</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${instruments.map((instrument, index) => `
+                        <tr>
+                            <td><span class="badge bg-primary">${index + 1}</span></td>
+                            <td><strong>${instrument.instrument}</strong></td>
+                            <td>${instrument.lessonCount}</td>
+                            <td>${instrument.uniqueStudents}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    document.getElementById('instrumentsTable').innerHTML = table;
+}
+
+function createLessonsTable(lessons) {
+    const table = `
+        <div class="table-responsive">
+            <table class="table table-striped" id="lessonsDataTable">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable('lessonsDataTable', 0)">Student <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('lessonsDataTable', 1)">Teacher <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('lessonsDataTable', 2)">Instrument <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('lessonsDataTable', 3)">Lesson Date <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('lessonsDataTable', 4)">Booking Date <i class="fas fa-sort"></i></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${lessons.map(lesson => `
+                        <tr>
+                            <td>
+                                <div>
+                                    <strong>${lesson.studentName}</strong><br>
+                                    <small class="text-muted">${lesson.studentEmail}</small>
+                                </div>
+                            </td>
+                            <td>
+                                <div>
+                                    <strong>${lesson.teacherName}</strong><br>
+                                    <small class="text-muted">${lesson.teacherEmail}</small>
+                                </div>
+                            </td>
+                            <td><span class="badge bg-info">${lesson.instrument}</span></td>
+                            <td>${lesson.lessonDate}</td>
+                            <td>${new Date(lesson.bookingDate).toLocaleDateString()}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    document.getElementById('lessonsTable').innerHTML = table;
+}
+
+function createUsersTable(users) {
+    const table = `
+        <div class="table-responsive">
+            <table class="table table-striped" id="usersDataTable">
+                <thead>
+                    <tr>
+                        <th onclick="sortTable('usersDataTable', 0)">Role <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('usersDataTable', 1)">Name <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('usersDataTable', 2)">Email <i class="fas fa-sort"></i></th>
+                        <th onclick="sortTable('usersDataTable', 3)">Joined Date <i class="fas fa-sort"></i></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${users.map(user => `
+                        <tr>
+                            <td>
+                                <span class="badge ${user.role === 'student' ? 'bg-primary' : 'bg-success'}">
+                                    ${user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                                </span>
+                            </td>
+                            <td><strong>${user.name}</strong></td>
+                            <td>${user.email}</td>
+                            <td>${new Date(user.joinedDate).toLocaleDateString()}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    document.getElementById('usersTable').innerHTML = table;
+}
+
+function createRepeatChart(data) {
+    const ctx = document.getElementById('repeatChart').getContext('2d');
+    
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Repeat Students', 'One-time Students'],
+            datasets: [{
+                data: [data.repeatStudents, data.totalStudents - data.repeatStudents],
+                backgroundColor: ['#FF6384', '#36A2EB'],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+}
+
+function createRepeatStats(data) {
+    const stats = `
+        <div class="row text-center">
+            <div class="col-md-4">
+                <div class="card bg-primary text-white">
+                    <div class="card-body">
+                        <h3>${data.totalStudents}</h3>
+                        <p class="mb-0">Total Students</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <h3>${data.repeatStudents}</h3>
+                        <p class="mb-0">Repeat Students</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-warning text-white">
+                    <div class="card-body">
+                        <h3>${data.repeatPercentage}%</h3>
+                        <p class="mb-0">Repeat Rate</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('repeatStats').innerHTML = stats;
+}
+
+function createInstrumentRevenueChart(instrumentRevenue) {
+    const ctx = document.getElementById('instrumentRevenueChart').getContext('2d');
+    
+    const labels = instrumentRevenue.map(i => i.instrument);
+    const data = instrumentRevenue.map(i => i.revenue);
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Revenue ($)',
+                data: data,
+                backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toFixed(2);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+function createStudentRevenueChart(topStudents) {
+    const ctx = document.getElementById('studentRevenueChart').getContext('2d');
+    
+    const labels = topStudents.map(s => s.studentName.split(' ')[0]); // First name only
+    const data = topStudents.map(s => s.totalSpent);
+    
+    new Chart(ctx, {
+        type: 'horizontalBar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Total Spent ($)',
+                data: data,
+                backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '$' + value.toFixed(2);
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Utility Functions
+function sortTable(tableId, columnIndex) {
+    const table = document.getElementById(tableId);
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    rows.sort((a, b) => {
+        const aText = a.cells[columnIndex].textContent.trim();
+        const bText = b.cells[columnIndex].textContent.trim();
+        return aText.localeCompare(bText);
+    });
+    
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+// Admin Dashboard Utility Functions
+window.searchLessons = function() {
+    const searchTerm = document.getElementById('lessonsSearch').value.toLowerCase();
+    const table = document.getElementById('lessonsDataTable');
+    if (!table) return;
+    
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+};
+
+window.searchUsers = function() {
+    const searchTerm = document.getElementById('usersSearch').value.toLowerCase();
+    const table = document.getElementById('usersDataTable');
+    if (!table) return;
+    
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(searchTerm) ? '' : 'none';
+    });
+};
+
+window.filterUsers = function() {
+    const roleFilter = document.getElementById('userRoleFilter').value;
+    const table = document.getElementById('usersDataTable');
+    if (!table) return;
+    
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => {
+        if (!roleFilter) {
+            row.style.display = '';
+        } else {
+            const roleCell = row.cells[0].textContent.toLowerCase();
+            row.style.display = roleCell.includes(roleFilter) ? '' : 'none';
+        }
+    });
+};
+
+window.showLessonsView = function(view) {
+    const tableView = document.getElementById('lessonsTable');
+    const calendarView = document.getElementById('lessonsCalendar');
+    
+    if (view === 'table') {
+        tableView.classList.remove('d-none');
+        calendarView.classList.add('d-none');
+    } else {
+        tableView.classList.add('d-none');
+        calendarView.classList.remove('d-none');
+        // TODO: Implement calendar view
+        calendarView.innerHTML = '<div class="alert alert-info">Calendar view coming soon!</div>';
+    }
+};
+
+// Tab Event Handlers
+document.addEventListener('DOMContentLoaded', function() {
+    // Load data when tabs are clicked
+    const revenueTab = document.getElementById('revenue-tab');
+    const referralTab = document.getElementById('referral-tab');
+    const instrumentsTab = document.getElementById('instruments-tab');
+    const lessonsTab = document.getElementById('lessons-tab');
+    const usersTab = document.getElementById('users-tab');
+    const repeatTab = document.getElementById('repeat-tab');
+    const distributionTab = document.getElementById('distribution-tab');
+    
+    if (revenueTab) revenueTab.addEventListener('click', loadRevenueReport);
+    if (referralTab) referralTab.addEventListener('click', loadReferralReport);
+    if (instrumentsTab) instrumentsTab.addEventListener('click', loadPopularInstruments);
+    if (lessonsTab) lessonsTab.addEventListener('click', loadLessonsBooked);
+    if (usersTab) usersTab.addEventListener('click', loadUsersJoined);
+    if (repeatTab) repeatTab.addEventListener('click', loadRepeatLessons);
+    if (distributionTab) distributionTab.addEventListener('click', loadRevenueDistribution);
+});
+
 // Admin Fee Payment Functions
 function showAdminFeePaymentModal() {
     // Get current admin fee amount
@@ -1757,6 +2363,9 @@ async function loadAdminDashboard() {
     try {
         // Load all admin statistics from the new API endpoint
         await loadAdminDashboardStats();
+        
+        // Load initial data for the first tab (Revenue Report)
+        await loadRevenueReport();
         
     } catch (error) {
         console.error('Error loading admin dashboard:', error);
