@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using System.Security.Cryptography;
-using BCrypt.Net;
 
 namespace FreelanceMusicAPI.Controllers
 {
@@ -37,7 +36,7 @@ namespace FreelanceMusicAPI.Controllers
                         student_email TEXT NOT NULL UNIQUE,
                         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        studentpassword TEXT
+                        studentpassword INTEGER UNIQUE
                     );";
                 createStudentTableCmd.ExecuteNonQuery();
 
@@ -48,7 +47,7 @@ namespace FreelanceMusicAPI.Controllers
                         teacher_id INTEGER PRIMARY KEY AUTOINCREMENT,
                         teacher_name TEXT NOT NULL,
                         teacher_email TEXT NOT NULL UNIQUE,
-                        teacher_password TEXT,
+                        teacher_password INTEGER UNIQUE,
                         instrument TEXT NOT NULL,
                         class_full INTEGER DEFAULT 0 CHECK (class_full IN (0, 1)),
                         class_limit INTEGER DEFAULT 10,
@@ -101,58 +100,6 @@ namespace FreelanceMusicAPI.Controllers
                     );";
                 createTeacherAvailabilityTableCmd.ExecuteNonQuery();
 
-                // Create Payment table
-                var createPaymentTableCmd = connection.CreateCommand();
-                createPaymentTableCmd.CommandText = @"
-                    CREATE TABLE IF NOT EXISTS Payment (
-                        payment_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        student_id INTEGER NOT NULL,
-                        teacher_id INTEGER NOT NULL,
-                        lesson_day TEXT NOT NULL,
-                        amount DECIMAL(10,2) NOT NULL,
-                        payment_method TEXT NOT NULL CHECK (payment_method IN ('Credit Card', 'Debit Card', 'PayPal', 'Bank Transfer')),
-                        payment_status TEXT NOT NULL DEFAULT 'Pending' CHECK (payment_status IN ('Pending', 'Completed', 'Failed', 'Refunded')),
-                        transaction_id TEXT UNIQUE,
-                        payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (student_id) REFERENCES Student(student_id) ON DELETE CASCADE,
-                        FOREIGN KEY (teacher_id) REFERENCES Teacher(teacher_id) ON DELETE CASCADE
-                    );";
-                createPaymentTableCmd.ExecuteNonQuery();
-
-                // Create Lesson_Files table for file uploads
-                var createLessonFilesTableCmd = connection.CreateCommand();
-                createLessonFilesTableCmd.CommandText = @"
-                    CREATE TABLE IF NOT EXISTS Lesson_Files (
-                        file_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        lesson_id INTEGER NOT NULL,
-                        student_id INTEGER NOT NULL,
-                        teacher_id INTEGER NOT NULL,
-                        file_name TEXT NOT NULL,
-                        file_path TEXT NOT NULL,
-                        file_size INTEGER NOT NULL,
-                        file_type TEXT NOT NULL,
-                        file_category TEXT NOT NULL,
-                        upload_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (student_id) REFERENCES Student(student_id) ON DELETE CASCADE,
-                        FOREIGN KEY (teacher_id) REFERENCES Teacher(teacher_id) ON DELETE CASCADE
-                    );";
-                createLessonFilesTableCmd.ExecuteNonQuery();
-
-                // Add file_category column if it doesn't exist (for existing databases)
-                try
-                {
-                    var alterLessonFilesTableCmd = connection.CreateCommand();
-                    alterLessonFilesTableCmd.CommandText = "ALTER TABLE Lesson_Files ADD COLUMN file_category TEXT;";
-                    alterLessonFilesTableCmd.ExecuteNonQuery();
-                }
-                catch (SqliteException)
-                {
-                    // Column already exists, ignore error
-                }
-
                 // Create indexes for better performance
                 var createIndexesCmd = connection.CreateCommand();
                 createIndexesCmd.CommandText = @"
@@ -188,6 +135,7 @@ namespace FreelanceMusicAPI.Controllers
                 connection.Open();
 
                 int userId;
+                string userType;
 
                 if (request.AccountType.ToLower() == "student")
                 {
@@ -211,11 +159,12 @@ namespace FreelanceMusicAPI.Controllers
                     var fullName = $"{request.FirstName} {request.LastName}";
                     insertStudentCmd.Parameters.AddWithValue("@name", fullName);
                     insertStudentCmd.Parameters.AddWithValue("@email", request.Email);
-                    insertStudentCmd.Parameters.AddWithValue("@password", BCrypt.Net.BCrypt.HashPassword(request.Password)); // Hash password with bcrypt
+                    insertStudentCmd.Parameters.AddWithValue("@password", int.Parse(request.Password)); // Password already hashed by frontend
                     insertStudentCmd.Parameters.AddWithValue("@createdAt", now);
                     insertStudentCmd.Parameters.AddWithValue("@updatedAt", now);
 
                     userId = Convert.ToInt32(insertStudentCmd.ExecuteScalar());
+                    userType = "student";
                 }
                 else if (request.AccountType.ToLower() == "teacher")
                 {
@@ -239,13 +188,14 @@ namespace FreelanceMusicAPI.Controllers
                     var fullName = $"{request.FirstName} {request.LastName}";
                     insertTeacherCmd.Parameters.AddWithValue("@name", fullName);
                     insertTeacherCmd.Parameters.AddWithValue("@email", request.Email);
-                    insertTeacherCmd.Parameters.AddWithValue("@password", BCrypt.Net.BCrypt.HashPassword(request.Password)); // Hash password with bcrypt
+                    insertTeacherCmd.Parameters.AddWithValue("@password", int.Parse(request.Password)); // Password already hashed by frontend
                     insertTeacherCmd.Parameters.AddWithValue("@instrument", "Not specified"); // Default value
                     insertTeacherCmd.Parameters.AddWithValue("@bio", "New teacher profile"); // Default value
                     insertTeacherCmd.Parameters.AddWithValue("@createdAt", now);
                     insertTeacherCmd.Parameters.AddWithValue("@updatedAt", now);
 
                     userId = Convert.ToInt32(insertTeacherCmd.ExecuteScalar());
+                    userType = "teacher";
                     }
                     else
                     {
@@ -281,10 +231,11 @@ namespace FreelanceMusicAPI.Controllers
                 // Try to find user in Student table first
                 var getStudentCmd = connection.CreateCommand();
                 getStudentCmd.CommandText = @"
-                    SELECT student_id, student_name, student_email, studentpassword 
+                    SELECT student_id, student_name, student_email 
                     FROM Student 
-                    WHERE student_email = @email";
+                    WHERE student_email = @email AND studentpassword = @password";
                 getStudentCmd.Parameters.AddWithValue("@email", request.Email);
+                getStudentCmd.Parameters.AddWithValue("@password", int.Parse(request.Password));
 
                 using (var reader = getStudentCmd.ExecuteReader())
                 {
@@ -293,55 +244,26 @@ namespace FreelanceMusicAPI.Controllers
                         var userId = reader.GetInt32(0);
                         var fullName = reader.GetString(1);
                         var email = reader.GetString(2);
-                        
-                        // Check if password is NULL (for sample data without passwords)
-                        if (reader.IsDBNull(3))
-                        {
-                            return Unauthorized(new { success = false, error = "This account has no password set. Please sign up with a new email or contact support." });
-                        }
-                        
-                        var storedPasswordHash = reader.GetString(3);
-                        
-                        // Check if password is in old integer format or new BCrypt format
-                        bool passwordValid = false;
-                        if (storedPasswordHash.StartsWith("$2"))
-                        {
-                            // New BCrypt format
-                            passwordValid = BCrypt.Net.BCrypt.Verify(request.Password, storedPasswordHash);
-                        }
-                        else
-                        {
-                            // Old format - clear the password and require re-signup
-                            var clearPasswordCmd = connection.CreateCommand();
-                            clearPasswordCmd.CommandText = "UPDATE Student SET studentpassword = NULL WHERE student_id = @userId";
-                            clearPasswordCmd.Parameters.AddWithValue("@userId", userId);
-                            clearPasswordCmd.ExecuteNonQuery();
-                            
-                            return Unauthorized(new { success = false, error = "Password format updated. Please sign up again with a new password." });
-                        }
-                        
-                        if (passwordValid)
-                        {
-                            var nameParts = fullName.Split(' ');
-                            var firstName = nameParts.Length > 0 ? nameParts[0] : "";
-                            var lastName = nameParts.Length > 1 ? string.Join(" ", nameParts.Skip(1)) : "";
+                        var nameParts = fullName.Split(' ');
+                        var firstName = nameParts.Length > 0 ? nameParts[0] : "";
+                        var lastName = nameParts.Length > 1 ? string.Join(" ", nameParts.Skip(1)) : "";
 
-                            return Ok(new
-                            {
-                                success = true,
-                                user = new { id = userId, firstName, lastName, email, accountType = "student" }
-                            });
-                        }
+                        return Ok(new
+                        {
+                            success = true,
+                            user = new { id = userId, firstName, lastName, email, accountType = "student" }
+                        });
                     }
                 }
 
                 // If not found in Student table, try Teacher table
-                var getTeacherCmd = connection.CreateCommand();
+                    var getTeacherCmd = connection.CreateCommand();
                 getTeacherCmd.CommandText = @"
-                    SELECT teacher_id, teacher_name, teacher_email, teacher_password 
+                    SELECT teacher_id, teacher_name, teacher_email 
                     FROM Teacher 
-                    WHERE teacher_email = @email";
+                    WHERE teacher_email = @email AND teacher_password = @password";
                 getTeacherCmd.Parameters.AddWithValue("@email", request.Email);
+                getTeacherCmd.Parameters.AddWithValue("@password", int.Parse(request.Password));
 
                 using (var teacherReader = getTeacherCmd.ExecuteReader())
                 {
@@ -350,49 +272,15 @@ namespace FreelanceMusicAPI.Controllers
                         var userId = teacherReader.GetInt32(0);
                         var fullName = teacherReader.GetString(1);
                         var email = teacherReader.GetString(2);
-                        
-                        // Check if password is NULL (for sample data without passwords)
-                        if (teacherReader.IsDBNull(3))
-                        {
-                            return Unauthorized(new { success = false, error = "This account has no password set. Please sign up with a new email or contact support." });
-                        }
-                        
-                        var storedPasswordHash = teacherReader.GetString(3);
-                        
-                        // Check if password is in old integer format or new BCrypt format
-                        bool passwordValid = false;
-                        if (storedPasswordHash.StartsWith("$2"))
-                        {
-                            // New BCrypt format
-                            passwordValid = BCrypt.Net.BCrypt.Verify(request.Password, storedPasswordHash);
-                        }
-                        else
-                        {
-                            // Old format - clear the password and require re-signup
-                            var clearPasswordCmd = connection.CreateCommand();
-                            clearPasswordCmd.CommandText = "UPDATE Teacher SET teacher_password = NULL WHERE teacher_id = @userId";
-                            clearPasswordCmd.Parameters.AddWithValue("@userId", userId);
-                            clearPasswordCmd.ExecuteNonQuery();
-                            
-                            return Unauthorized(new { success = false, error = "Password format updated. Please sign up again with a new password." });
-                        }
-                        
-                        if (passwordValid)
-                        {
-                            var nameParts = fullName.Split(' ');
-                            var firstName = nameParts.Length > 0 ? nameParts[0] : "";
-                            var lastName = nameParts.Length > 1 ? string.Join(" ", nameParts.Skip(1)) : "";
+                        var nameParts = fullName.Split(' ');
+                        var firstName = nameParts.Length > 0 ? nameParts[0] : "";
+                        var lastName = nameParts.Length > 1 ? string.Join(" ", nameParts.Skip(1)) : "";
 
-                            return Ok(new
-                            {
-                                success = true,
-                                user = new { id = userId, firstName, lastName, email, accountType = "teacher" }
-                            });
-                        }
-                        else
+                        return Ok(new
                         {
-                            return Unauthorized(new { success = false, error = "Invalid email or password." });
-                        }
+                            success = true,
+                            user = new { id = userId, firstName, lastName, email, accountType = "teacher" }
+                        });
                     }
                     else
                     {
@@ -873,7 +761,7 @@ namespace FreelanceMusicAPI.Controllers
                         var classLimit = limitReader.GetInt32(0);
                         var currentClass = limitReader.GetInt32(1);
                         
-                        if (currentClass > classLimit)
+                        if (currentClass >= classLimit)
                         {
                             return BadRequest(new { success = false, error = "This teacher has reached their class limit and is no longer available." });
                         }
@@ -907,70 +795,6 @@ namespace FreelanceMusicAPI.Controllers
                 incrementClassCmd.ExecuteNonQuery();
 
                 return Ok(new { success = true, message = "Student enrolled successfully" });
-            }
-        }
-
-        [HttpPost("teacher-students/get")]
-    public IActionResult GetTeacherStudents([FromBody] GetStudentStudyingRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.StudentEmail)) // Reusing the same request class
-            {
-                return BadRequest(new { success = false, error = "Teacher email is required." });
-            }
-
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-
-                // Get teacher ID
-                var getTeacherCmd = connection.CreateCommand();
-                getTeacherCmd.CommandText = "SELECT teacher_id FROM Teacher WHERE teacher_email = @email";
-                getTeacherCmd.Parameters.AddWithValue("@email", request.StudentEmail); // Reusing the field name
-                var teacherId = getTeacherCmd.ExecuteScalar();
-
-                if (teacherId == null)
-                {
-                    return NotFound(new { success = false, error = "Teacher not found." });
-                }
-
-                // Get students studying with this teacher
-                var getStudentsCmd = connection.CreateCommand();
-                getStudentsCmd.CommandText = @"
-                    SELECT ss.day, s.student_name, s.student_email, t.instrument, t.bio
-                    FROM Student_Studying ss
-                    JOIN Student s ON ss.student_id = s.student_id
-                    JOIN Teacher t ON ss.teacher_id = t.teacher_id
-                    WHERE ss.teacher_id = @teacherId
-                    ORDER BY 
-                        CASE ss.day
-                            WHEN 'Monday' THEN 1
-                            WHEN 'Tuesday' THEN 2
-                            WHEN 'Wednesday' THEN 3
-                            WHEN 'Thursday' THEN 4
-                            WHEN 'Friday' THEN 5
-                            WHEN 'Saturday' THEN 6
-                            WHEN 'Sunday' THEN 7
-                        END";
-
-                getStudentsCmd.Parameters.AddWithValue("@teacherId", teacherId);
-
-                var students = new List<object>();
-                using (var studentsReader = getStudentsCmd.ExecuteReader())
-                {
-                    while (studentsReader.Read())
-                    {
-                        students.Add(new
-                        {
-                            day = studentsReader.GetString(0),
-                            studentName = studentsReader.GetString(1),
-                            studentEmail = studentsReader.GetString(2),
-                            instrument = studentsReader.GetString(3),
-                            bio = studentsReader.GetString(4)
-                        });
-                    }
-                }
-
-                return Ok(new { success = true, lessons = students });
             }
         }
 
@@ -1033,826 +857,98 @@ namespace FreelanceMusicAPI.Controllers
                     }
                 }
 
-                return Ok(new { success = true, lessons = studying });
-            }
-        }
-
-        [HttpPost("check-password")]
-        public IActionResult CheckPassword([FromBody] CheckPasswordRequest request)
-        {
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-
-                // Check Student table
-                var getStudentCmd = connection.CreateCommand();
-                getStudentCmd.CommandText = @"
-                    SELECT student_id, student_name, student_email, studentpassword 
-                    FROM Student 
-                    WHERE student_email = @email";
-                getStudentCmd.Parameters.AddWithValue("@email", request.Email);
-
-                using (var reader = getStudentCmd.ExecuteReader())
-                {
-                    if (reader.Read())
-                    {
-                        var userId = reader.GetInt32(0);
-                        var fullName = reader.GetString(1);
-                        var email = reader.GetString(2);
-                        var storedPassword = reader.IsDBNull(3) ? (int?)null : reader.GetInt32(3);
-                        
-                        return Ok(new { 
-                            success = true, 
-                            found = true,
-                            table = "Student",
-                            userId = userId,
-                            fullName = fullName,
-                            email = email,
-                            storedPassword = storedPassword,
-                            hasPassword = storedPassword.HasValue
-                        });
-                    }
-                }
-
-                // Check Teacher table
-                var getTeacherCmd = connection.CreateCommand();
-                getTeacherCmd.CommandText = @"
-                    SELECT teacher_id, teacher_name, teacher_email, teacher_password 
-                    FROM Teacher 
-                    WHERE teacher_email = @email";
-                getTeacherCmd.Parameters.AddWithValue("@email", request.Email);
-
-                using (var teacherReader = getTeacherCmd.ExecuteReader())
-                {
-                    if (teacherReader.Read())
-                    {
-                        var userId = teacherReader.GetInt32(0);
-                        var fullName = teacherReader.GetString(1);
-                        var email = teacherReader.GetString(2);
-                        var storedPassword = teacherReader.IsDBNull(3) ? (int?)null : teacherReader.GetInt32(3);
-                        
-                        return Ok(new { 
-                            success = true, 
-                            found = true,
-                            table = "Teacher",
-                            userId = userId,
-                            fullName = fullName,
-                            email = email,
-                            storedPassword = storedPassword,
-                            hasPassword = storedPassword.HasValue
-                        });
-                    }
-                }
-
-                return Ok(new { 
-                    success = true, 
-                    found = false,
-                    message = "User not found"
-                });
-            }
-        }
-
-        [HttpPost("update-password")]
-        public IActionResult UpdatePassword([FromBody] UpdatePasswordRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.NewPassword))
-            {
-                return BadRequest(new { success = false, error = "Email and new password are required." });
-            }
-
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-
-                // Try to update student password first
-                var updateStudentCmd = connection.CreateCommand();
-                updateStudentCmd.CommandText = @"
-                    UPDATE Student 
-                    SET studentpassword = @password, updated_at = @updatedAt
-                    WHERE student_email = @email";
-                updateStudentCmd.Parameters.AddWithValue("@password", BCrypt.Net.BCrypt.HashPassword(request.NewPassword));
-                updateStudentCmd.Parameters.AddWithValue("@email", request.Email);
-                updateStudentCmd.Parameters.AddWithValue("@updatedAt", DateTime.UtcNow.ToString("o"));
-
-                int studentRowsAffected = updateStudentCmd.ExecuteNonQuery();
-
-                if (studentRowsAffected > 0)
-                {
-                    return Ok(new { success = true, message = "Student password updated successfully" });
-                }
-
-                // Try to update teacher password
-                var updateTeacherCmd = connection.CreateCommand();
-                updateTeacherCmd.CommandText = @"
-                    UPDATE Teacher 
-                    SET teacher_password = @password, updated_at = @updatedAt
-                    WHERE teacher_email = @email";
-                updateTeacherCmd.Parameters.AddWithValue("@password", BCrypt.Net.BCrypt.HashPassword(request.NewPassword));
-                updateTeacherCmd.Parameters.AddWithValue("@email", request.Email);
-                updateTeacherCmd.Parameters.AddWithValue("@updatedAt", DateTime.UtcNow.ToString("o"));
-
-                int teacherRowsAffected = updateTeacherCmd.ExecuteNonQuery();
-
-                if (teacherRowsAffected > 0)
-                {
-                    return Ok(new { success = true, message = "Teacher password updated successfully" });
-                }
-
-                return NotFound(new { success = false, error = "User not found." });
-            }
-        }
-
-        [HttpPost("migrate-passwords")]
-        public IActionResult MigratePasswords([FromBody] object? request = null)
-        {
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-
-                try
-                {
-                    // Set default passwords for sample teachers
-                    var updateSampleTeachersCmd = connection.CreateCommand();
-                    updateSampleTeachersCmd.CommandText = @"
-                        UPDATE Teacher 
-                        SET teacher_password = @bcryptHash 
-                        WHERE teacher_email IN ('alice.wilson@email.com', 'bob.brown@email.com', 'carol.green@email.com', 'david.lee@email.com')
-                        AND (teacher_password IS NULL OR teacher_password = '' OR teacher_password = '0' OR teacher_password NOT LIKE '$2%');
-                    ";
-                    updateSampleTeachersCmd.Parameters.AddWithValue("@bcryptHash", BCrypt.Net.BCrypt.HashPassword("password123"));
-                    updateSampleTeachersCmd.ExecuteNonQuery();
-
-                    return Ok(new { 
-                        success = true, 
-                        message = "Database migration completed successfully. Sample teachers now have default password 'password123'." 
-                    });
-                }
-                catch (Exception ex)
-                {
-                    return BadRequest(new { 
-                        success = false, 
-                        error = $"Migration failed: {ex.Message}" 
-                    });
-                }
-            }
-        }
-
-        [HttpPost("payment/process")]
-    public IActionResult ProcessPayment([FromBody] ProcessPaymentRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.StudentEmail) || string.IsNullOrWhiteSpace(request.TeacherEmail) ||
-                string.IsNullOrWhiteSpace(request.LessonDay) || request.Amount <= 0 ||
-                string.IsNullOrWhiteSpace(request.PaymentMethod))
-            {
-                return BadRequest(new { success = false, error = "All payment fields are required." });
-            }
-
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-
-                try
-                {
-                    // Get student ID
-                    var getStudentCmd = connection.CreateCommand();
-                    getStudentCmd.CommandText = "SELECT student_id FROM Student WHERE student_email = @email";
-                    getStudentCmd.Parameters.AddWithValue("@email", request.StudentEmail);
-                    var studentId = getStudentCmd.ExecuteScalar();
-
-                    if (studentId == null)
-                    {
-                        return NotFound(new { success = false, error = "Student not found." });
-                    }
-
-                    // Get teacher ID
-                    var getTeacherCmd = connection.CreateCommand();
-                    getTeacherCmd.CommandText = "SELECT teacher_id FROM Teacher WHERE teacher_email = @email";
-                    getTeacherCmd.Parameters.AddWithValue("@email", request.TeacherEmail);
-                    var teacherId = getTeacherCmd.ExecuteScalar();
-
-                    if (teacherId == null)
-                    {
-                        return NotFound(new { success = false, error = "Teacher not found." });
-                    }
-
-                    // Generate transaction ID (simplified for demo)
-                    var transactionId = $"TXN_{DateTime.UtcNow:yyyyMMddHHmmss}_{studentId}_{teacherId}";
-
-                    // Insert payment record
-                    var insertPaymentCmd = connection.CreateCommand();
-                    insertPaymentCmd.CommandText = @"
-                        INSERT INTO Payment (student_id, teacher_id, lesson_day, amount, payment_method, payment_status, transaction_id, payment_date, created_at, updated_at)
-                        VALUES (@studentId, @teacherId, @lessonDay, @amount, @paymentMethod, @paymentStatus, @transactionId, @paymentDate, @createdAt, @updatedAt);
-                        SELECT last_insert_rowid();";
-
-                    var now = DateTime.UtcNow.ToString("o");
-                    insertPaymentCmd.Parameters.AddWithValue("@studentId", studentId);
-                    insertPaymentCmd.Parameters.AddWithValue("@teacherId", teacherId);
-                    insertPaymentCmd.Parameters.AddWithValue("@lessonDay", request.LessonDay);
-                    insertPaymentCmd.Parameters.AddWithValue("@amount", request.Amount);
-                    insertPaymentCmd.Parameters.AddWithValue("@paymentMethod", request.PaymentMethod);
-                    insertPaymentCmd.Parameters.AddWithValue("@paymentStatus", "Completed"); // For demo, assume payment succeeds
-                    insertPaymentCmd.Parameters.AddWithValue("@transactionId", transactionId);
-                    insertPaymentCmd.Parameters.AddWithValue("@paymentDate", now);
-                    insertPaymentCmd.Parameters.AddWithValue("@createdAt", now);
-                    insertPaymentCmd.Parameters.AddWithValue("@updatedAt", now);
-
-                    var paymentId = Convert.ToInt32(insertPaymentCmd.ExecuteScalar());
-
-                    return Ok(new { 
-                        success = true, 
-                        message = "Payment processed successfully",
-                        paymentId = paymentId,
-                        transactionId = transactionId,
-                        amount = request.Amount
-                    });
-                }
-                catch (Exception ex)
-                {
-                    return BadRequest(new { 
-                        success = false, 
-                        error = $"Payment processing failed: {ex.Message}" 
-                    });
-                }
-            }
-        }
-
-        [HttpPost("payment/history")]
-    public IActionResult GetPaymentHistory([FromBody] GetPaymentHistoryRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.StudentEmail))
-            {
-                return BadRequest(new { success = false, error = "Student email is required." });
-            }
-
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-
-                // Get student ID
-                var getStudentCmd = connection.CreateCommand();
-                getStudentCmd.CommandText = "SELECT student_id FROM Student WHERE student_email = @email";
-                getStudentCmd.Parameters.AddWithValue("@email", request.StudentEmail);
-                var studentId = getStudentCmd.ExecuteScalar();
-
-                if (studentId == null)
-                {
-                    return NotFound(new { success = false, error = "Student not found." });
-                }
-
-                // Get payment history
-                var getPaymentsCmd = connection.CreateCommand();
-                getPaymentsCmd.CommandText = @"
-                    SELECT p.payment_id, p.lesson_day, p.amount, p.payment_method, p.payment_status, 
-                           p.transaction_id, p.payment_date, t.teacher_name, t.instrument
-                    FROM Payment p
-                    JOIN Teacher t ON p.teacher_id = t.teacher_id
-                    WHERE p.student_id = @studentId
-                    ORDER BY p.payment_date DESC";
-
-                getPaymentsCmd.Parameters.AddWithValue("@studentId", studentId);
-
-                var payments = new List<object>();
-                using (var reader = getPaymentsCmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        payments.Add(new
-                        {
-                            paymentId = reader.GetInt32(0),
-                            lessonDay = reader.GetString(1),
-                            amount = reader.GetDecimal(2),
-                            paymentMethod = reader.GetString(3),
-                            paymentStatus = reader.GetString(4),
-                            transactionId = reader.GetString(5),
-                            paymentDate = reader.GetString(6),
-                            teacherName = reader.GetString(7),
-                            instrument = reader.GetString(8)
-                        });
-                    }
-                }
-
-                return Ok(new { success = true, payments = payments });
-            }
-        }
-
-        [HttpPost("update-student-password")]
-    public IActionResult UpdateStudentPassword([FromBody] UpdatePasswordRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.NewPassword))
-            {
-                return BadRequest(new { success = false, error = "Email and password are required." });
-            }
-
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-
-                try
-                {
-                    // Update student password
-                    var updatePasswordCmd = connection.CreateCommand();
-                    updatePasswordCmd.CommandText = @"
-                        UPDATE Student 
-                        SET studentpassword = @bcryptHash, updated_at = @updatedAt
-                        WHERE student_email = @email";
-                    
-                    var now = DateTime.UtcNow.ToString("o");
-                    updatePasswordCmd.Parameters.AddWithValue("@bcryptHash", BCrypt.Net.BCrypt.HashPassword(request.NewPassword));
-                    updatePasswordCmd.Parameters.AddWithValue("@email", request.Email);
-                    updatePasswordCmd.Parameters.AddWithValue("@updatedAt", now);
-
-                    int rowsAffected = updatePasswordCmd.ExecuteNonQuery();
-
-                    if (rowsAffected > 0)
-                    {
-                        return Ok(new { 
-                            success = true, 
-                            message = "Student password updated successfully." 
-                        });
-                    }
-                    else
-                    {
-                        return NotFound(new { 
-                            success = false, 
-                            error = "Student not found." 
-                        });
-                    }
-                }
-                catch (Exception ex)
-                {
-                    return BadRequest(new { 
-                        success = false, 
-                        error = $"Password update failed: {ex.Message}" 
-                    });
-                }
-            }
-        }
-
-        [HttpPost("update-teacher-password")]
-    public IActionResult UpdateTeacherPassword([FromBody] UpdatePasswordRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.NewPassword))
-            {
-                return BadRequest(new { success = false, error = "Email and password are required." });
-            }
-
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-
-                try
-                {
-                    // Update teacher password
-                    var updatePasswordCmd = connection.CreateCommand();
-                    updatePasswordCmd.CommandText = @"
-                        UPDATE Teacher 
-                        SET teacher_password = @bcryptHash, updated_at = @updatedAt
-                        WHERE teacher_email = @email";
-                    
-                    var now = DateTime.UtcNow.ToString("o");
-                    updatePasswordCmd.Parameters.AddWithValue("@bcryptHash", BCrypt.Net.BCrypt.HashPassword(request.NewPassword));
-                    updatePasswordCmd.Parameters.AddWithValue("@email", request.Email);
-                    updatePasswordCmd.Parameters.AddWithValue("@updatedAt", now);
-
-                    int rowsAffected = updatePasswordCmd.ExecuteNonQuery();
-
-                    if (rowsAffected > 0)
-                    {
-                    return Ok(new { 
-                        success = true, 
-                            message = "Password updated successfully." 
-                        });
-                    }
-                    else
-                    {
-                        return NotFound(new { 
-                            success = false, 
-                            error = "Teacher not found." 
-                        });
-                    }
-                }
-                catch (Exception ex)
-                {
-                    return BadRequest(new { 
-                        success = false, 
-                        error = $"Password update failed: {ex.Message}" 
-                    });
-                }
-            }
-        }
-
-        [HttpPost("payment/teacher-earnings")]
-    public IActionResult GetTeacherEarnings([FromBody] GetPaymentHistoryRequest request)
-        {
-            if (string.IsNullOrWhiteSpace(request.StudentEmail)) // Reusing the same request class
-            {
-                return BadRequest(new { success = false, error = "Teacher email is required." });
-            }
-
-            using (var connection = new SqliteConnection(_connectionString))
-            {
-                connection.Open();
-
-                // Get teacher ID
-                var getTeacherCmd = connection.CreateCommand();
-                getTeacherCmd.CommandText = "SELECT teacher_id FROM Teacher WHERE teacher_email = @email";
-                getTeacherCmd.Parameters.AddWithValue("@email", request.StudentEmail); // Reusing the field name
-                var teacherId = getTeacherCmd.ExecuteScalar();
-
-                if (teacherId == null)
-                {
-                    return NotFound(new { success = false, error = "Teacher not found." });
-                }
-
-                // Get teacher earnings
-                var getEarningsCmd = connection.CreateCommand();
-                getEarningsCmd.CommandText = @"
-                    SELECT p.payment_id, p.lesson_day, p.amount, p.payment_method, p.payment_status, 
-                           p.transaction_id, p.payment_date, s.student_name, s.student_email
-                    FROM Payment p
-                    JOIN Student s ON p.student_id = s.student_id
-                    WHERE p.teacher_id = @teacherId
-                    ORDER BY p.payment_date DESC";
-
-                getEarningsCmd.Parameters.AddWithValue("@teacherId", teacherId);
-
-                var earnings = new List<object>();
-                using (var reader = getEarningsCmd.ExecuteReader())
-                {
-                    while (reader.Read())
-                    {
-                        earnings.Add(new
-                        {
-                            paymentId = reader.GetInt32(0),
-                            lessonDay = reader.GetString(1),
-                            amount = reader.GetDecimal(2),
-                            paymentMethod = reader.GetString(3),
-                            paymentStatus = reader.GetString(4),
-                            transactionId = reader.GetString(5),
-                            paymentDate = reader.GetString(6),
-                            studentName = reader.GetString(7),
-                            studentEmail = reader.GetString(8)
-                        });
-                    }
-                }
-
-                // Calculate total earnings
-                var totalEarningsCmd = connection.CreateCommand();
-                totalEarningsCmd.CommandText = @"
-                    SELECT COALESCE(SUM(amount), 0) as total_earnings, COUNT(*) as total_lessons
-                    FROM Payment 
-                    WHERE teacher_id = @teacherId AND payment_status = 'Completed'";
-                totalEarningsCmd.Parameters.AddWithValue("@teacherId", teacherId);
-
-                decimal totalEarnings = 0;
-                int totalLessons = 0;
-                using (var reader = totalEarningsCmd.ExecuteReader())
-                {
-                    if (reader.Read())
-                    {
-                        totalEarnings = reader.GetDecimal(0);
-                        totalLessons = reader.GetInt32(1);
-                    }
-                }
-
-                return Ok(new { 
-                    success = true, 
-                    earnings = earnings,
-                    totalEarnings = totalEarnings,
-                    totalLessons = totalLessons
-                });
-            }
-        }
-
-        [HttpPost("upload-lesson-file")]
-        public async Task<IActionResult> UploadLessonFile()
-        {
-            try
-            {
-                // Get form data
-                var form = await Request.ReadFormAsync();
-                var file = form.Files.FirstOrDefault();
-                var studentEmail = form["studentEmail"].FirstOrDefault();
-                var teacherEmail = form["teacherEmail"].FirstOrDefault();
-                var lessonDay = form["lessonDay"].FirstOrDefault();
-
-                if (file == null || file.Length == 0)
-                {
-                    return BadRequest(new { success = false, error = "No file uploaded." });
-                }
-
-                if (string.IsNullOrEmpty(studentEmail) || string.IsNullOrEmpty(teacherEmail) || string.IsNullOrEmpty(lessonDay))
-                {
-                    return BadRequest(new { success = false, error = "Missing required parameters: studentEmail, teacherEmail, or lessonDay." });
-                }
-
-                // Validate file size (max 10MB)
-                if (file.Length > 10 * 1024 * 1024)
-                {
-                    return BadRequest(new { success = false, error = "File size exceeds 10MB limit." });
-                }
-
-                // Validate file type
-                var allowedExtensions = new[] { ".pdf", ".docx", ".doc", ".jpg", ".jpeg", ".png", ".gif", ".txt" };
-                var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
-                if (!allowedExtensions.Contains(fileExtension))
-                {
-                    return BadRequest(new { success = false, error = "File type not allowed. Allowed types: PDF, DOCX, DOC, JPG, JPEG, PNG, GIF, TXT" });
-                }
-
-                // Determine file category and create appropriate directory
-                string fileCategory;
-                if (fileExtension == ".jpg" || fileExtension == ".jpeg" || fileExtension == ".png" || fileExtension == ".gif")
-                {
-                    fileCategory = "images";
-                }
-                else if (fileExtension == ".pdf" || fileExtension == ".docx" || fileExtension == ".doc")
-                {
-                    fileCategory = "documents";
-                }
-                else
-                {
-                    fileCategory = "other";
-                }
-
-                // Create organized uploads directory structure
-                var baseUploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "resources");
-                var categoryPath = Path.Combine(baseUploadsPath, fileCategory);
-                var teacherPath = Path.Combine(categoryPath, "teacher_files");
-                
-                if (!Directory.Exists(teacherPath))
-                {
-                    Directory.CreateDirectory(teacherPath);
-                }
-
-                // Generate unique filename with original name preserved in metadata
-                var fileName = $"{Guid.NewGuid()}{fileExtension}";
-                var filePath = Path.Combine(teacherPath, fileName);
-
-                // Save file
-                using (var stream = new FileStream(filePath, FileMode.Create))
-                {
-                    await file.CopyToAsync(stream);
-                }
-
-                // Get student and teacher IDs
-                using (var connection = new SqliteConnection(_connectionString))
-                {
-                    connection.Open();
-
-                    var getStudentIdCmd = connection.CreateCommand();
-                    getStudentIdCmd.CommandText = "SELECT student_id FROM Student WHERE student_email = @email";
-                    getStudentIdCmd.Parameters.AddWithValue("@email", studentEmail);
-                    var studentId = getStudentIdCmd.ExecuteScalar();
-
-                    var getTeacherIdCmd = connection.CreateCommand();
-                    getTeacherIdCmd.CommandText = "SELECT teacher_id FROM Teacher WHERE teacher_email = @email";
-                    getTeacherIdCmd.Parameters.AddWithValue("@email", teacherEmail);
-                    var teacherId = getTeacherIdCmd.ExecuteScalar();
-
-                    if (studentId == null || teacherId == null)
-                    {
-                        // Clean up uploaded file if database operation fails
-                        if (System.IO.File.Exists(filePath))
-                        {
-                            System.IO.File.Delete(filePath);
-                        }
-                        return BadRequest(new { success = false, error = "Student or teacher not found." });
-                    }
-
-                    // Get lesson ID from Student_Studying table
-                    var getLessonIdCmd = connection.CreateCommand();
-                    getLessonIdCmd.CommandText = @"
-                        SELECT ss.student_id || '_' || ss.teacher_id || '_' || ss.day as lesson_id
-                        FROM Student_Studying ss
-                        WHERE ss.student_id = @studentId AND ss.teacher_id = @teacherId AND ss.day = @day";
-                    getLessonIdCmd.Parameters.AddWithValue("@studentId", studentId);
-                    getLessonIdCmd.Parameters.AddWithValue("@teacherId", teacherId);
-                    getLessonIdCmd.Parameters.AddWithValue("@day", lessonDay);
-                    var lessonId = getLessonIdCmd.ExecuteScalar()?.ToString();
-
-                    if (string.IsNullOrEmpty(lessonId))
-                    {
-                        // Clean up uploaded file if lesson not found
-                        if (System.IO.File.Exists(filePath))
-                        {
-                            System.IO.File.Delete(filePath);
-                        }
-                        return BadRequest(new { success = false, error = "Lesson not found." });
-                    }
-
-                    // Save file metadata to database
-                    var insertFileCmd = connection.CreateCommand();
-                    insertFileCmd.CommandText = @"
-                        INSERT INTO Lesson_Files (lesson_id, student_id, teacher_id, file_name, file_path, file_size, file_type, file_category)
-                        VALUES (@lessonId, @studentId, @teacherId, @fileName, @filePath, @fileSize, @fileType, @fileCategory)";
-                    insertFileCmd.Parameters.AddWithValue("@lessonId", lessonId);
-                    insertFileCmd.Parameters.AddWithValue("@studentId", studentId);
-                    insertFileCmd.Parameters.AddWithValue("@teacherId", teacherId);
-                    insertFileCmd.Parameters.AddWithValue("@fileName", file.FileName);
-                    insertFileCmd.Parameters.AddWithValue("@filePath", filePath);
-                    insertFileCmd.Parameters.AddWithValue("@fileSize", file.Length);
-                    insertFileCmd.Parameters.AddWithValue("@fileType", file.ContentType);
-                    insertFileCmd.Parameters.AddWithValue("@fileCategory", fileCategory);
-                    insertFileCmd.ExecuteNonQuery();
-
-                    return Ok(new { 
-                        success = true, 
-                        message = "File uploaded successfully.",
-                        fileName = file.FileName,
-                        fileSize = file.Length
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, error = $"Upload failed: {ex.Message}" });
-            }
-        }
-
-        [HttpPost("get-lesson-files")]
-        public IActionResult GetLessonFiles([FromBody] GetLessonFilesRequest request)
-        {
-            try
-            {
-                using (var connection = new SqliteConnection(_connectionString))
-                {
-                    connection.Open();
-
-                    // Get student and teacher IDs
-                    var getStudentIdCmd = connection.CreateCommand();
-                    getStudentIdCmd.CommandText = "SELECT student_id FROM Student WHERE student_email = @email";
-                    getStudentIdCmd.Parameters.AddWithValue("@email", request.StudentEmail);
-                    var studentId = getStudentIdCmd.ExecuteScalar();
-
-                    var getTeacherIdCmd = connection.CreateCommand();
-                    getTeacherIdCmd.CommandText = "SELECT teacher_id FROM Teacher WHERE teacher_email = @email";
-                    getTeacherIdCmd.Parameters.AddWithValue("@email", request.TeacherEmail);
-                    var teacherId = getTeacherIdCmd.ExecuteScalar();
-
-                    if (studentId == null || teacherId == null)
-                    {
-                        return BadRequest(new { success = false, error = "Student or teacher not found." });
-                    }
-
-                    // Get lesson files
-                    var getFilesCmd = connection.CreateCommand();
-                    getFilesCmd.CommandText = @"
-                        SELECT file_id, file_name, file_size, file_type, file_category, upload_date
-                        FROM Lesson_Files
-                        WHERE student_id = @studentId AND teacher_id = @teacherId AND lesson_id LIKE @lessonIdPattern
-                        ORDER BY upload_date DESC";
-                    getFilesCmd.Parameters.AddWithValue("@studentId", studentId);
-                    getFilesCmd.Parameters.AddWithValue("@teacherId", teacherId);
-                    getFilesCmd.Parameters.AddWithValue("@lessonIdPattern", $"{studentId}_{teacherId}_{request.LessonDay}");
-
-                    var files = new List<object>();
-                    using (var reader = getFilesCmd.ExecuteReader())
-                    {
-                        while (reader.Read())
-                        {
-                            files.Add(new
-                            {
-                                fileId = reader.GetInt32(0),
-                                fileName = reader.GetString(1),
-                                fileSize = reader.GetInt64(2),
-                                fileType = reader.GetString(3),
-                                fileCategory = reader.GetString(4),
-                                uploadDate = reader.GetDateTime(5)
-                            });
-                        }
-                    }
-
-                    return Ok(new { success = true, files = files });
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { success = false, error = $"Failed to get files: {ex.Message}" });
+                return Ok(new { success = true, studying = studying });
             }
         }
     }
-}
 
-// DTOs for requests
-public class SignupRequest
-{
-    public string? FirstName { get; set; }
-    public string? LastName { get; set; }
-    public string? Email { get; set; }
-    public string? Password { get; set; }
-    public string? AccountType { get; set; }
-}
+    // DTOs for requests
+    public class SignupRequest
+    {
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? Email { get; set; }
+        public string? Password { get; set; }
+        public string? AccountType { get; set; }
+    }
 
-public class LoginRequest
-{
-    public string? Email { get; set; }
-    public string? Password { get; set; }
-}
+    public class LoginRequest
+    {
+        public string? Email { get; set; }
+        public string? Password { get; set; }
+    }
 
-public class CreateTeacherProfileRequest
-{
-    public string? Name { get; set; }
-    public string? Instrument { get; set; }
-    public string? Bio { get; set; }
-    public string? Email { get; set; }
-    public int? ClassFull { get; set; }
-    public int? ClassLimit { get; set; }
-}
+    public class CreateTeacherProfileRequest
+    {
+        public string? Name { get; set; }
+        public string? Instrument { get; set; }
+        public string? Bio { get; set; }
+        public string? Email { get; set; }
+        public int? ClassFull { get; set; }
+        public int? ClassLimit { get; set; }
+    }
 
-public class GetTeacherProfileRequest
-{
-    public string? Email { get; set; }
-}
+    public class GetTeacherProfileRequest
+    {
+        public string? Email { get; set; }
+    }
 
-public class UpdateTeacherProfileRequest
-{
-    public string? Name { get; set; }
-    public string? Instrument { get; set; }
-    public string? Bio { get; set; }
-    public string? Email { get; set; }
-    public int? ClassFull { get; set; }
-    public int? ClassLimit { get; set; }
-}
+    public class UpdateTeacherProfileRequest
+    {
+        public string? Name { get; set; }
+        public string? Instrument { get; set; }
+        public string? Bio { get; set; }
+        public string? Email { get; set; }
+        public int? ClassFull { get; set; }
+        public int? ClassLimit { get; set; }
+    }
 
-public class AddTeacherAvailabilityRequest
-{
-    public string? Email { get; set; }
-    public string? Day { get; set; }
-    public string? StartTime { get; set; }
-    public string? EndTime { get; set; }
-}
+    public class AddTeacherAvailabilityRequest
+    {
+        public string? Email { get; set; }
+        public string? Day { get; set; }
+        public string? StartTime { get; set; }
+        public string? EndTime { get; set; }
+    }
 
-public class GetTeacherAvailabilityRequest
-{
-    public string? Email { get; set; }
-}
+    public class GetTeacherAvailabilityRequest
+    {
+        public string? Email { get; set; }
+    }
 
-public class SetTeacherAvailabilityRequest
-{
-    public string? Email { get; set; }
-    public List<AvailabilitySlot>? Availability { get; set; }
-}
+    public class SetTeacherAvailabilityRequest
+    {
+        public string? Email { get; set; }
+        public List<AvailabilitySlot>? Availability { get; set; }
+    }
 
-public class AvailabilitySlot
-{
-    public string? DayOfWeek { get; set; }
-    public string? StartTime { get; set; }
-    public string? EndTime { get; set; }
-    public bool IsAvailable { get; set; }
-}
+    public class AvailabilitySlot
+    {
+        public string? DayOfWeek { get; set; }
+        public string? StartTime { get; set; }
+        public string? EndTime { get; set; }
+        public bool IsAvailable { get; set; }
+    }
 
-public class GetTeachersListRequest
-{
-    public string? Instrument { get; set; }
-}
+    public class GetTeachersListRequest
+    {
+        public string? Instrument { get; set; }
+    }
 
-public class GetTeacherScheduleRequest
-{
-    public string? TeacherId { get; set; }
-}
+    public class GetTeacherScheduleRequest
+    {
+        public string? TeacherId { get; set; }
+    }
 
-public class AddStudentStudyingRequest
-{
-    public string? StudentEmail { get; set; }
-    public string? TeacherEmail { get; set; }
-    public string? Day { get; set; }
-}
+    public class AddStudentStudyingRequest
+    {
+        public string? StudentEmail { get; set; }
+        public string? TeacherEmail { get; set; }
+        public string? Day { get; set; }
+    }
 
-public class GetStudentStudyingRequest
-{
-    public string? StudentEmail { get; set; }
-}
-
-public class CheckPasswordRequest
-{
-    public string? Email { get; set; }
-}
-
-public class UpdatePasswordRequest
-{
-    public string? Email { get; set; }
-    public string? NewPassword { get; set; }
-}
-
-public class ProcessPaymentRequest
-{
-    public string? StudentEmail { get; set; }
-    public string? TeacherEmail { get; set; }
-    public string? LessonDay { get; set; }
-    public decimal Amount { get; set; }
-    public string? PaymentMethod { get; set; }
-}
-
-public class GetPaymentHistoryRequest
-{
-    public string? StudentEmail { get; set; }
-}
-
-public class GetLessonFilesRequest
-{
-    public string? StudentEmail { get; set; }
-    public string? TeacherEmail { get; set; }
-    public string? LessonDay { get; set; }
+    public class GetStudentStudyingRequest
+    {
+        public string? StudentEmail { get; set; }
+    }
 }
